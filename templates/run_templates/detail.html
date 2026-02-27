@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }} – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>{{ template.name }}</h1>
+<p>Type: {{ template.run_type }}</p>
+{% if template.notes %}<p>{{ template.notes }}</p>{% endif %}
+
+<h2>Add Segment</h2>
+<form hx-post="/run-templates/{{ template.id }}/add-segment"
+      hx-target="#segment-list"
+      hx-swap="outerHTML">
+    <label>Segment Type
+        <select name="segment_type">
+            {% for st in segment_types %}
+            <option value="{{ st }}">{{ st }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Duration (optional)
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="number" name="duration_minutes" min="0" placeholder="min" style="width:70px">
+            <span>:</span>
+            <input type="number" name="duration_seconds" min="0" max="59" placeholder="sec" style="width:70px">
+        </div>
+    </label>
+    <label>Distance (optional)
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="number" name="distance_value" min="0" step="0.01" placeholder="value" style="width:100px">
+            <select name="distance_unit">
+                <option value="m">m</option>
+                <option value="km">km</option>
+            </select>
+        </div>
+    </label>
+    <label>Target Pace (optional)
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+            <input type="number" name="pace_minutes" min="0" placeholder="min" style="width:70px">
+            <span>:</span>
+            <input type="number" name="pace_seconds" min="0" max="59" placeholder="sec" style="width:70px">
+            <span>/km</span>
+        </div>
+    </label>
+    <label>Target RPE (optional)
+        <input type="number" name="target_rpe" min="1" max="10" step="0.5">
+    </label>
+    <label>Notes (optional)
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+    <button type="submit">Add Segment</button>
+</form>
+
+{% include "run_templates/partials/segment_list.html" %}
+
+{% endblock %}

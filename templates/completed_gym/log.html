@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Log Gym Workout – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Log Gym Workout{% if template %}: {{ template.name }}{% endif %}</h1>
+
+<form method="post" action="/log/gym/save">
+    {% if template %}
+    <input type="hidden" name="gym_template_id" value="{{ template.id }}">
+    {% endif %}
+
+    <label>Date
+        <input type="date" name="date" value="{{ today }}" required>
+    </label>
+
+    <label>Overall Notes
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+
+    <hr>
+    <h2>Exercises</h2>
+    <div id="exercise-container">
+        {% for ex in prefilled_exercises %}
+        {% set i = loop.index0 %}
+        <div class="exercise-block" id="exercise-{{ i }}">
+            <input type="hidden" name="exercise_id_{{ i }}" value="{{ ex.exercise_id }}">
+            <input type="hidden" name="exercise_type_{{ i }}" value="{{ ex.exercise_type }}">
+
+            <h3>
+                {{ ex.exercise_name }}
+                <button type="button"
+                    data-index="{{ i }}"
+                    onclick="removeExercise(parseInt(this.dataset.index))">Remove</button>
+            </h3>
+
+            {% if ex.target_weight_kg %}
+                <p><em>Target: {{ ex.target_sets }} sets
+                {% if ex.exercise_type == "reps" %}× {{ ex.target_reps }} reps{% else %}× {{ ex.target_seconds }}s{% endif %}
+                @ {{ ex.target_weight_kg }} kg
+                {% if ex.target_rpe %} @ RPE {{ ex.target_rpe }}{% endif %}
+                </em></p>
+            {% else %}
+                <p><em>Target: {{ ex.target_sets }} sets
+                {% if ex.exercise_type == "reps" %}× {{ ex.target_reps }} reps{% else %}× {{ ex.target_seconds }}s{% endif %}
+                {% if ex.target_rpe %} @ RPE {{ ex.target_rpe }}{% endif %}
+                </em></p>
+            {% endif %}
+
+            <div id="sets-{{ i }}">
+                {% for s in range(ex.target_sets) %}
+                <div class="set-row" style="display:flex; gap:1rem; align-items:center; margin:0.3rem 0;">
+                    <span>Set {{ s + 1 }}</span>
+                    <input type="number" name="weight_{{ i }}_{{ s }}"
+                           placeholder="kg" step="0.5" min="0" style="width:70px"
+                           value="{{ ex.target_weight_kg or '' }}">
+                    {% if ex.exercise_type == "reps" %}
+                    <input type="number" name="reps_{{ i }}_{{ s }}"
+                           placeholder="reps" min="0" style="width:70px"
+                           value="{{ ex.target_reps or '' }}">
+                    {% else %}
+                    <input type="number" name="seconds_{{ i }}_{{ s }}"
+                           placeholder="sec" min="0" style="width:70px"
+                           value="{{ ex.target_seconds or '' }}">
+                    {% endif %}
+                    <input type="text" name="set_notes_{{ i }}_{{ s }}"
+                           placeholder="notes" style="width:150px">
+                    <button type="button" onclick="removeSet(this)">✕</button>
+                </div>
+                {% endfor %}
+            </div>
+
+            <input type="hidden" name="set_count_{{ i }}"
+                   id="set_count_{{ i }}" value="{{ ex.target_sets }}">
+
+            <button type="button"
+                data-index="{{ i }}"
+                data-extype="{{ ex.exercise_type }}"
+                onclick="addSet(parseInt(this.dataset.index), this.dataset.extype)">
+                + Add Set
+            </button>
+            <hr>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h3>Add Exercise</h3>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+        <select id="extra-exercise-select">
+            {% for ex in all_exercises %}
+            <option value="{{ ex.id }}" data-type="{{ ex.type }}">
+                {{ ex.name }} ({{ ex.category }}, {{ ex.type }})
+            </option>
+            {% endfor %}
+        </select>
+        <button type="button" onclick="addExercise()">Add</button>
+    </div>
+
+    <br>
+    <button type="submit" style="font-size:1.2rem; padding:0.5rem 2rem;">
+        Save Workout
+    </button>
+</form>
+
+<div id="exercise-config" data-count="{{ prefilled_exercises|length }}"></div>
+
+<script>
+    let exerciseCount = parseInt(document.getElementById('exercise-config').dataset.count);
+
+    function addSet(exIndex, exType) {
+        const container = document.getElementById(`sets-${exIndex}`);
+        const countInput = document.getElementById(`set_count_${exIndex}`);
+        const setNum = container.querySelectorAll('.set-row').length + 1;
+        const s = setNum - 1;
+
+        const row = document.createElement('div');
+        row.className = 'set-row';
+        row.style = 'display:flex; gap:1rem; align-items:center; margin:0.3rem 0;';
+        row.innerHTML = `
+            <span>Set ${setNum}</span>
+            <input type="number" name="weight_${exIndex}_${s}"
+                   placeholder="kg" step="0.5" min="0" style="width:70px">
+            ${exType === 'reps'
+                ? `<input type="number" name="reps_${exIndex}_${s}" placeholder="reps" min="0" style="width:70px">`
+                : `<input type="number" name="seconds_${exIndex}_${s}" placeholder="sec" min="0" style="width:70px">`
+            }
+            <input type="text" name="set_notes_${exIndex}_${s}"
+                   placeholder="notes" style="width:150px">
+            <button type="button" onclick="removeSet(this)">✕</button>
+        `;
+        container.appendChild(row);
+        countInput.value = setNum;
+    }
+
+    function removeSet(btn) {
+        const row = btn.closest('.set-row');
+        const container = row.parentElement;
+        const exIndex = container.id.replace('sets-', '');
+        row.remove();
+        const rows = container.querySelectorAll('.set-row');
+        rows.forEach((r, i) => {
+            r.querySelector('span').textContent = `Set ${i + 1}`;
+        });
+        document.getElementById(`set_count_${exIndex}`).value = rows.length;
+    }
+
+    function removeExercise(exIndex) {
+        document.getElementById(`exercise-${exIndex}`).remove();
+    }
+
+    function addExercise() {
+        const select = document.getElementById('extra-exercise-select');
+        const option = select.options[select.selectedIndex];
+        const exId = option.value;
+        const exName = option.text;
+        const exType = option.getAttribute('data-type');
+        const i = exerciseCount;
+
+        const container = document.getElementById('exercise-container');
+        const block = document.createElement('div');
+        block.className = 'exercise-block';
+        block.id = `exercise-${i}`;
+        block.innerHTML = `
+            <input type="hidden" name="exercise_id_${i}" value="${exId}">
+            <input type="hidden" name="exercise_type_${i}" value="${exType}">
+            <h3>${exName}
+                <button type="button" data-index="${i}" onclick="removeExercise(parseInt(this.dataset.index))">Remove</button>
+            </h3>
+            <div id="sets-${i}">
+                <div class="set-row" style="display:flex; gap:1rem; align-items:center; margin:0.3rem 0;">
+                    <span>Set 1</span>
+                    <input type="number" name="weight_${i}_0"
+                           placeholder="kg" step="0.5" min="0" style="width:70px">
+                    ${exType === 'reps'
+                        ? `<input type="number" name="reps_${i}_0" placeholder="reps" min="0" style="width:70px">`
+                        : `<input type="number" name="seconds_${i}_0" placeholder="sec" min="0" style="width:70px">`
+                    }
+                    <input type="text" name="set_notes_${i}_0"
+                           placeholder="notes" style="width:150px">
+                    <button type="button" onclick="removeSet(this)">✕</button>
+                </div>
+            </div>
+            <input type="hidden" name="set_count_${i}" id="set_count_${i}" value="1">
+            <button type="button" data-index="${i}" data-extype="${exType}"
+                onclick="addSet(parseInt(this.dataset.index), this.dataset.extype)">+ Add Set</button>
+            <hr>
+        `;
+        container.appendChild(block);
+        exerciseCount++;
+    }
+</script>
+
+{% endblock %}

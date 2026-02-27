@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Edit Exercise – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Edit Exercise</h1>
+
+<form method="post" action="/exercises/{{ exercise.id }}/edit">
+    <label>Name
+        <input type="text" name="name" value="{{ exercise.name }}" required>
+    </label>
+    <label>Category
+        <select name="category">
+            {% for cat in categories %}
+            <option value="{{ cat }}" {% if cat == exercise.category %}selected{% endif %}>
+                {{ cat }}
+            </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Type
+        <select name="type">
+            {% for t in types %}
+            <option value="{{ t }}" {% if t == exercise.type %}selected{% endif %}>
+                {{ t }}
+            </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Notes (optional)
+        <textarea name="notes" rows="2">{{ exercise.notes or "" }}</textarea>
+    </label>
+    <button type="submit">Save Changes</button>
+    <a href="/exercises"><button type="button">Cancel</button></a>
+</form>
+
+{% endblock %}

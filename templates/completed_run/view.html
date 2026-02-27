@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Run Workout – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Run Workout – {{ workout.date }}</h1>
+<p>Type: {{ workout.run_type }}</p>
+{% if workout.template_name %}<p>Based on: {{ workout.template_name }}</p>{% endif %}
+{% if workout.garmin_activity_id %}<p>Garmin ID: {{ workout.garmin_activity_id }}</p>{% endif %}
+
+<p>
+    {% if workout.total_distance_meters %}
+        Total distance: {{ "%.2f"|format(workout.total_distance_meters / 1000) }} km
+    {% endif %}
+    {% if workout.total_duration_seconds %}
+        {% set h = workout.total_duration_seconds // 3600 %}
+        {% set m = (workout.total_duration_seconds % 3600) // 60 %}
+        {% set s = workout.total_duration_seconds % 60 %}
+        &nbsp;|&nbsp; Total time:
+        {% if h > 0 %}{{ h }}:{{ "%02d"|format(m) }}:{{ "%02d"|format(s) }}
+        {% else %}{{ m }}:{{ "%02d"|format(s) }}{% endif %}
+    {% endif %}
+</p>
+
+{% if workout.notes %}<p>{{ workout.notes }}</p>{% endif %}
+
+<table>
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Duration</th>
+            <th>Distance</th>
+            <th>Pace</th>
+            <th>RPE</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for seg in segments %}
+        <tr>
+            <td>{{ seg.order_index + 1 }}</td>
+            <td>{{ seg.segment_type }}</td>
+            <td>
+                {% if seg.actual_duration_seconds %}
+                    {% set m = seg.actual_duration_seconds // 60 %}
+                    {% set s = seg.actual_duration_seconds % 60 %}
+                    {{ m }}:{{ "%02d"|format(s) }}
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if seg.actual_distance_meters %}
+                    {% if seg.actual_distance_meters >= 1000 %}
+                        {{ "%.2f"|format(seg.actual_distance_meters / 1000) }} km
+                    {% else %}
+                        {{ seg.actual_distance_meters|int }} m
+                    {% endif %}
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if seg.actual_pace_min_per_km %}
+                    {% set pm = seg.actual_pace_min_per_km|int %}
+                    {% set ps = ((seg.actual_pace_min_per_km - pm) * 60)|int %}
+                    {{ pm }}:{{ "%02d"|format(ps) }} /km
+                {% else %}—{% endif %}
+            </td>
+            <td>{{ seg.actual_rpe or "—" }}</td>
+            <td>{{ seg.notes or "—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<br>
+<a href="/log/run">← Back to run log</a>
+
+{% endblock %}

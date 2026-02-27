@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Workout Tracker{% endblock %}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#2c3e50">
+    <style>
+        /* ── Reset & base ── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #222;
+            background: #f5f5f5;
+        }
+
+        /* ── Nav ── */
+        nav {
+            background: #2c3e50;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-brand {
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            padding: 0.75rem 0;
+            text-decoration: none;
+        }
+        .nav-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.75rem 0;
+        }
+        .nav-links {
+            display: flex;
+            gap: 0.25rem;
+        }
+        .nav-links a {
+            color: rgba(255,255,255,0.85);
+            text-decoration: none;
+            padding: 0.75rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+
+        /* ── Mobile nav ── */
+        @media (max-width: 700px) {
+            .nav-toggle { display: block; }
+            .nav-links {
+                display: none;
+                flex-direction: column;
+                position: absolute;
+                top: 100%;
+                left: 0; right: 0;
+                background: #2c3e50;
+                padding: 0.5rem 1rem 1rem;
+                gap: 0;
+            }
+            .nav-links.open { display: flex; }
+            .nav-links a {
+                padding: 0.75rem 0.5rem;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+                border-radius: 0;
+            }
+        }
+
+        /* ── Page content ── */
+        .content {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 1.25rem 1rem;
+        }
+        h1 { font-size: 1.6rem; margin-bottom: 1rem; color: #2c3e50; }
+        h2 { font-size: 1.2rem; margin: 1.5rem 0 0.75rem; color: #34495e; }
+        h3 { font-size: 1rem; margin: 1rem 0 0.5rem; color: #34495e; }
+        hr { border: none; border-top: 1px solid #ddd; margin: 1.5rem 0; }
+        p { margin-bottom: 0.5rem; }
+
+        /* ── Forms ── */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 480px;
+        }
+        label {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #444;
+        }
+        input, select, textarea {
+            padding: 0.6rem 0.75rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            width: 100%;
+            background: white;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #4a90d9;
+            box-shadow: 0 0 0 2px rgba(74,144,217,0.2);
+        }
+
+        /* ── Buttons ── */
+        button, .btn {
+            padding: 0.6rem 1.2rem;
+            font-size: 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #4a90d9;
+            color: white;
+            min-height: 44px;
+            min-width: 44px;
+        }
+        button:hover, .btn:hover { background: #357abd; }
+        button[type="button"].secondary {
+            background: #ecf0f1;
+            color: #333;
+        }
+        button[type="button"].secondary:hover { background: #dde; }
+        button.danger { background: #e74c3c; }
+        button.danger:hover { background: #c0392b; }
+        .btn-small {
+            padding: 0.3rem 0.7rem;
+            font-size: 0.85rem;
+            min-height: 36px;
+        }
+        a button, button a { text-decoration: none; }
+
+        /* ── Tables ── */
+        .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        th {
+            text-align: left;
+            padding: 0.6rem 0.75rem;
+            background: #f0f4f8;
+            font-size: 0.85rem;
+            color: #555;
+            white-space: nowrap;
+        }
+        td {
+            padding: 0.6rem 0.75rem;
+            border-top: 1px solid #eee;
+            font-size: 0.95rem;
+        }
+        tr:hover td { background: #fafafa; }
+
+        /* ── Cards (for mobile-friendly sections) ── */
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+        /* ── Set rows in log pages ── */
+        .set-row {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            margin: 0.4rem 0;
+            flex-wrap: wrap;
+        }
+        .set-row input {
+            width: 80px !important;
+            flex-shrink: 0;
+        }
+        .set-row span { min-width: 45px; font-weight: 600; font-size: 0.9rem; }
+
+        /* ── Utility ── */
+        .error { color: #e74c3c; }
+        .muted { color: #888; font-size: 0.9rem; }
+        .mt1 { margin-top: 1rem; }
+        .flex-row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+
+        /* ── Links ── */
+        a { color: #4a90d9; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* ── Exercise/segment blocks in log ── */
+        .exercise-block, .segment-block {
+            background: white;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+        .exercise-block h3, .segment-block h3 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 0;
+        }
+
+        /* ── Drag handle ── */
+        .draggable-row { cursor: default; }
+        .draggable-row td:first-child { cursor: grab; }
+
+        /* ── Save button (big, mobile-friendly) ── */
+        .save-btn {
+            font-size: 1.1rem;
+            padding: 0.85rem 2rem;
+            width: 100%;
+            max-width: 480px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <a href="/" class="nav-brand">💪 Workout Tracker</a>
+        <button class="nav-toggle" onclick="toggleNav()" aria-label="Menu">☰</button>
+        <div class="nav-links" id="nav-links">
+            <a href="/">Home</a>
+            <a href="/exercises">Exercises</a>
+            <a href="/gym-templates">Gym Templates</a>
+            <a href="/run-templates">Run Templates</a>
+            <a href="/schedule">Schedule</a>
+            <a href="/log/gym">Gym Log</a>
+            <a href="/log/run">Run Log</a>
+            <a href="/history">History</a>
+        </div>
+    </nav>
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+    <script>
+        function toggleNav() {
+            document.getElementById('nav-links').classList.toggle('open');
+        }
+        // close nav when a link is clicked on mobile
+        document.querySelectorAll('.nav-links a').forEach(a => {
+            a.addEventListener('click', () => {
+                document.getElementById('nav-links').classList.remove('open');
+            });
+        });
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/static/service_worker.js');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+<div id="workout-table">
+    {% if workouts %}
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Template</th>
+                <th>Notes</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for w in workouts %}
+            <tr>
+                <td>{{ w.date }}</td>
+                <td>{{ w.template_name or "No template" }}</td>
+                <td>{{ w.notes or "—" }}</td>
+                <td><a href="/log/gym/{{ w.id }}">View</a></td>
+                <td>
+                    <button
+                        hx-delete="/log/gym/{{ w.id }}"
+                        hx-target="#workout-table"
+                        hx-swap="outerHTML"
+                        hx-confirm="Delete this workout?">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No workouts logged yet.</p>
+    {% endif %}
+</div>

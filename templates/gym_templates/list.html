@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Gym Templates – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Gym Workout Templates</h1>
+
+<h2>Create Template</h2>
+<form hx-post="/gym-templates/add"
+      hx-target="#template-table"
+      hx-swap="outerHTML">
+    <label>Name
+        <input type="text" name="name" required>
+    </label>
+    <label>Notes (optional)
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+    <button type="submit">Create Template</button>
+</form>
+
+<h2>Your Templates</h2>
+{% include "gym_templates/partials/template_table.html" %}
+
+{% endblock %}

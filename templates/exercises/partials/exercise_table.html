@@ -1,0 +1,32 @@
+<table id="exercise-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Type</th>
+            <th>Notes</th>
+            <th></th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ex in exercises %}
+        <tr>
+            <td><a href="/history?exercise_id={{ ex.id }}">{{ ex.name }}</a></td>
+            <td>{{ ex.category }}</td>
+            <td>{{ ex.type }}</td>
+            <td>{{ ex.notes or "" }}</td>
+            <td><a href="/exercises/{{ ex.id }}/edit">Edit</a></td>
+            <td>
+                <button
+                    hx-delete="/exercises/{{ ex.id }}"
+                    hx-target="#exercise-table"
+                    hx-swap="outerHTML"
+                    hx-confirm="Delete {{ ex.name }}?">
+                    Delete
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

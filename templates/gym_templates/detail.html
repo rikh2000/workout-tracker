@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ template.name }} – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>{{ template.name }}</h1>
+{% if template.notes %}<p>{{ template.notes }}</p>{% endif %}
+
+<h2>Add Exercise</h2>
+<form hx-post="/gym-templates/{{ template.id }}/add-exercise"
+      hx-target="#exercise-list"
+      hx-swap="outerHTML">
+    <label>Exercise
+        <select name="exercise_id" id="exercise-select"
+                onchange="updateTargetField()">
+            {% for ex in all_exercises %}
+            <option value="{{ ex.id }}" data-type="{{ ex.type }}">
+                {{ ex.name }} ({{ ex.category }}, {{ ex.type }})
+            </option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Sets
+        <input type="number" name="target_sets" min="1" value="3" required>
+    </label>
+    <div id="reps-field">
+        <label>Target Reps
+            <input type="number" name="target_reps" min="1">
+        </label>
+    </div>
+    <div id="seconds-field" style="display:none">
+        <label>Target Seconds
+            <input type="number" name="target_seconds" min="1">
+        </label>
+    </div>
+    <label>Target RPE (optional)
+        <input type="number" name="target_rpe" min="1" max="10" step="0.5">
+    </label>
+    <label>Target RIR (optional)
+        <input type="number" name="target_rir" min="0" max="10">
+    </label>
+    <label>Target Weight in kg (optional)
+        <input type="number" name="target_weight_kg" min="0" step="0.5">
+    </label>
+    <label>Notes (optional)
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+    <button type="submit">Add to Template</button>
+</form>
+
+{% include "gym_templates/partials/exercise_list.html" %}
+
+<script>
+    function updateTargetField() {
+        const select = document.getElementById('exercise-select');
+        const selectedOption = select.options[select.selectedIndex];
+        const type = selectedOption.getAttribute('data-type');
+        document.getElementById('reps-field').style.display = type === 'reps' ? 'block' : 'none';
+        document.getElementById('seconds-field').style.display = type === 'timed' ? 'block' : 'none';
+    }
+    updateTargetField();
+</script>
+
+{% endblock %}

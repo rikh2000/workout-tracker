@@ -1,0 +1,28 @@
+<table id="template-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Notes</th>
+            <th></th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in gym_templates %}
+        <tr>
+            <td>{{ t.name }}</td>
+            <td>{{ t.notes or "" }}</td>
+            <td><a href="/gym-templates/{{ t.id }}">Open</a></td>
+            <td>
+                <button
+                    hx-delete="/gym-templates/{{ t.id }}"
+                    hx-target="#template-table"
+                    hx-swap="outerHTML"
+                    hx-confirm="Delete {{ t.name }}? This will also remove all exercises in it.">
+                    Delete
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

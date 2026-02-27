@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Gym Log – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Gym Workout Log</h1>
+<a href="/log/gym/new"><button>Log New Workout</button></a>
+
+{% include "completed_gym/partials/workout_table.html" %}
+
+{% endblock %}

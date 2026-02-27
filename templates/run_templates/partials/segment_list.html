@@ -1,0 +1,112 @@
+<div id="segment-list" data-template-id="{{ template_id }}">
+    {% if segments %}
+    <table>
+        <thead>
+            <tr>
+                <th></th>
+                <th>#</th>
+                <th>Type</th>
+                <th>Duration</th>
+                <th>Distance</th>
+                <th>Target Pace</th>
+                <th>Target RPE</th>
+                <th>Notes</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="segment-tbody">
+            {% for seg in segments %}
+            <tr draggable="true" data-id="{{ seg.id }}" class="draggable-row">
+                <td style="cursor:grab; color:#aaa;">⠿</td>
+                <td>{{ seg.order_index + 1 }}</td>
+                <td>{{ seg.segment_type }}</td>
+                <td>
+                    {% if seg.target_duration_seconds %}
+                        {% set mins = (seg.target_duration_seconds // 60) %}
+                        {% set secs = (seg.target_duration_seconds % 60) %}
+                        {{ mins }}:{{ "%02d"|format(secs) }}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if seg.target_distance_meters %}
+                        {% if seg.target_distance_meters >= 1000 %}
+                            {{ "%.2f"|format(seg.target_distance_meters / 1000) }} km
+                        {% else %}
+                            {{ seg.target_distance_meters|int }} m
+                        {% endif %}
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    {% if seg.target_pace_min_per_km %}
+                        {% set pace_mins = seg.target_pace_min_per_km|int %}
+                        {% set pace_secs = ((seg.target_pace_min_per_km - pace_mins) * 60)|int %}
+                        {{ pace_mins }}:{{ "%02d"|format(pace_secs) }} /km
+                    {% else %}—{% endif %}
+                </td>
+                <td>{{ seg.target_rpe or "—" }}</td>
+                <td>{{ seg.notes or "—" }}</td>
+                <td>
+                    <button
+                        hx-delete="/run-templates/{{ template_id }}/segments/{{ seg.id }}"
+                        hx-target="#segment-list"
+                        hx-swap="outerHTML"
+                        hx-confirm="Remove this segment?">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>No segments yet. Add one below.</p>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    const tbody = document.getElementById('segment-tbody');
+    if (!tbody) return;
+
+    let draggedRow = null;
+
+    tbody.addEventListener('dragstart', (e) => {
+        draggedRow = e.target.closest('tr');
+        draggedRow.style.opacity = '0.4';
+    });
+
+    tbody.addEventListener('dragend', (e) => {
+        draggedRow.style.opacity = '1';
+        draggedRow = null;
+        saveOrder();
+    });
+
+    tbody.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('tr');
+        if (!target || target === draggedRow) return;
+
+        const rows = [...tbody.querySelectorAll('tr')];
+        const draggedIndex = rows.indexOf(draggedRow);
+        const targetIndex = rows.indexOf(target);
+
+        if (draggedIndex < targetIndex) {
+            target.after(draggedRow);
+        } else {
+            target.before(draggedRow);
+        }
+    });
+
+    function saveOrder() {
+        const rows = [...tbody.querySelectorAll('tr')];
+        const orderedIds = rows.map(r => parseInt(r.dataset.id));
+        const templateId = document.getElementById('segment-list').dataset.templateId;
+
+        fetch(`/run-templates/${templateId}/reorder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ordered_ids: orderedIds })
+        });
+    }
+})();
+</script>

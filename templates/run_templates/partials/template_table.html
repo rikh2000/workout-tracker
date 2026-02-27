@@ -1,0 +1,30 @@
+<table id="template-table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Notes</th>
+            <th></th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in run_templates %}
+        <tr>
+            <td>{{ t.name }}</td>
+            <td>{{ t.run_type }}</td>
+            <td>{{ t.notes or "" }}</td>
+            <td><a href="/run-templates/{{ t.id }}">Open</a></td>
+            <td>
+                <button
+                    hx-delete="/run-templates/{{ t.id }}"
+                    hx-target="#template-table"
+                    hx-swap="outerHTML"
+                    hx-confirm="Delete {{ t.name }}?">
+                    Delete
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

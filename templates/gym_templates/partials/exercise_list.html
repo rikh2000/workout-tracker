@@ -1,0 +1,100 @@
+<div id="exercise-list">
+    {% if exercises_in_template %}
+    <table id="exercise-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>#</th>
+                <th>Exercise</th>
+                <th>Sets</th>
+                <th>Target</th>
+                <th>Weight (kg)</th>
+                <th>RPE</th>
+                <th>RIR</th>
+                <th>Notes</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="exercise-tbody">
+            {% for ex in exercises_in_template %}
+            <tr draggable="true" data-id="{{ ex.id }}" class="draggable-row">
+                <td style="cursor:grab; color:#aaa;">⠿</td>
+                <td>{{ ex.order_index + 1 }}</td>
+                <td>{{ ex.exercise_name }}</td>
+                <td>{{ ex.target_sets }}</td>
+                <td>
+                    {% if ex.exercise_type == "reps" %}
+                        {{ ex.target_reps or "—" }} reps
+                    {% else %}
+                        {{ ex.target_seconds or "—" }} sec
+                    {% endif %}
+                </td>
+                <td>{{ ex.target_weight_kg or "—" }}</td>
+                <td>{{ ex.target_rpe or "—" }}</td>
+                <td>{{ ex.target_rir or "—" }}</td>
+                <td>{{ ex.notes or "—" }}</td>
+                <td>
+                    <button
+                        hx-delete="/gym-templates/{{ template_id }}/exercises/{{ ex.id }}"
+                        hx-target="#exercise-list"
+                        hx-swap="outerHTML"
+                        hx-confirm="Remove {{ ex.exercise_name }}?">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>No exercises yet. Add one below.</p>
+    {% endif %}
+</div>
+
+<script>
+(function() {
+    const tbody = document.getElementById('exercise-tbody');
+    if (!tbody) return;
+
+    let draggedRow = null;
+
+    tbody.addEventListener('dragstart', (e) => {
+        draggedRow = e.target.closest('tr');
+        draggedRow.style.opacity = '0.4';
+    });
+
+    tbody.addEventListener('dragend', (e) => {
+        draggedRow.style.opacity = '1';
+        draggedRow = null;
+        saveOrder();
+    });
+
+    tbody.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const target = e.target.closest('tr');
+        if (!target || target === draggedRow) return;
+
+        const rows = [...tbody.querySelectorAll('tr')];
+        const draggedIndex = rows.indexOf(draggedRow);
+        const targetIndex = rows.indexOf(target);
+
+        if (draggedIndex < targetIndex) {
+            target.after(draggedRow);
+        } else {
+            target.before(draggedRow);
+        }
+    });
+
+    function saveOrder() {
+        const rows = [...tbody.querySelectorAll('tr')];
+        const orderedIds = rows.map(r => parseInt(r.dataset.id));
+        const templateId = document.getElementById('exercise-list').dataset.templateId;
+
+        fetch(`/gym-templates/${templateId}/reorder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ordered_ids: orderedIds })
+        });
+    }
+})();
+</script>

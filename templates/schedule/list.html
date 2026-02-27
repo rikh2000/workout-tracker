@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Schedule – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Schedule</h1>
+
+<h2>Plan a Workout</h2>
+<form hx-post="/schedule/add"
+      hx-target="#schedule-table"
+      hx-swap="outerHTML">
+    <label>Date
+        <input type="date" name="date" value="{{ today }}" required>
+    </label>
+    <label>Type
+        <select name="workout_type" id="workout-type-select"
+                onchange="updateTemplateField()">
+            <option value="gym">Gym</option>
+            <option value="run">Run</option>
+        </select>
+    </label>
+    <div id="gym-template-field">
+        <label>Gym Template
+            <select name="gym_template_id">
+                {% for t in gym_templates %}
+                <option value="{{ t.id }}">{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    <div id="run-template-field" style="display:none">
+        <label>Run Template
+            <select name="run_template_id">
+                {% for t in run_templates %}
+                <option value="{{ t.id }}">{{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </label>
+    </div>
+    <label>Notes (optional)
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+    <button type="submit">Add to Schedule</button>
+</form>
+
+<h2>Upcoming Workouts</h2>
+{% include "schedule/partials/schedule_table.html" %}
+
+<script>
+    function updateTemplateField() {
+        const type = document.getElementById('workout-type-select').value;
+        document.getElementById('gym-template-field').style.display = type === 'gym' ? 'block' : 'none';
+        document.getElementById('run-template-field').style.display = type === 'run' ? 'block' : 'none';
+    }
+</script>
+
+{% endblock %}

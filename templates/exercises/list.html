@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Exercises – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Exercise Library</h1>
+
+<h2>Add Exercise</h2>
+<form hx-post="/exercises/add"
+      hx-target="#exercise-table"
+      hx-swap="outerHTML">
+    <label>Name
+        <input type="text" name="name" required>
+    </label>
+    <label>Category
+        <select name="category">
+            {% for cat in categories %}
+            <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Type
+        <select name="type">
+            {% for t in types %}
+            <option value="{{ t }}">{{ t }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Notes (optional)
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+    <button type="submit">Add Exercise</button>
+</form>
+
+<h2>All Exercises</h2>
+{% include "exercises/partials/exercise_table.html" %}
+
+{% endblock %}

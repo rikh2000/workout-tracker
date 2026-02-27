@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Gym Workout – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Gym Workout – {{ workout.date }}</h1>
+{% if workout.template_name %}<p>Based on: {{ workout.template_name }}</p>{% endif %}
+{% if workout.notes %}<p>{{ workout.notes }}</p>{% endif %}
+
+{% for ex in exercises %}
+<h3>{{ ex.name }}</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Set</th>
+            {% if ex.type == "reps" %}<th>Reps</th>{% else %}<th>Seconds</th>{% endif %}
+            <th>Weight (kg)</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for s in ex.sets %}
+        <tr>
+            <td>{{ s.set_number }}</td>
+            {% if ex.type == "reps" %}
+                <td>{{ s.reps or "—" }}</td>
+            {% else %}
+                <td>{{ s.seconds or "—" }}</td>
+            {% endif %}
+            <td>{{ s.weight_kg or "—" }}</td>
+            <td>{{ s.notes or "—" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endfor %}
+
+<br>
+<a href="/log/gym">← Back to gym log</a>
+
+{% endblock %}

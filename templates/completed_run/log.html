@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Log Run Workout – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Log Run Workout{% if template %}: {{ template.name }}{% endif %}</h1>
+
+<form method="post" action="/log/run/save">
+    {% if template %}
+    <input type="hidden" name="run_template_id" value="{{ template.id }}">
+    <input type="hidden" name="run_type" value="{{ template.run_type }}">
+    {% else %}
+    <label>Run Type
+        <select name="run_type">
+            {% for st in segment_types %}
+            <option value="{{ st }}">{{ st }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    {% endif %}
+
+    <label>Date
+        <input type="date" name="date" value="{{ today }}" required>
+    </label>
+
+    <label>Garmin Activity ID (optional)
+        <input type="text" name="garmin_activity_id" placeholder="e.g. 1234567890">
+    </label>
+
+    <label>Overall Notes
+        <textarea name="notes" rows="2"></textarea>
+    </label>
+
+    <hr>
+    <h2>Segments</h2>
+    <div id="segment-container">
+        {% for seg in prefilled_segments %}
+        {% set i = loop.index0 %}
+        <div class="segment-block" id="segment-{{ i }}">
+            <h3>
+                Segment {{ i + 1 }} — {{ seg.segment_type }}
+                <button type="button"
+                    data-index="{{ i }}"
+                    onclick="removeSegment(parseInt(this.dataset.index))">Remove</button>
+            </h3>
+
+            <input type="hidden" name="segment_type_{{ i }}" value="{{ seg.segment_type }}">
+
+            {% if seg.target_duration_seconds %}
+            <p><em>Target duration:
+                {{ seg.target_duration_seconds // 60 }}:{{ "%02d"|format(seg.target_duration_seconds % 60) }}
+            </em></p>
+            {% endif %}
+            {% if seg.target_distance_meters %}
+            <p><em>Target distance:
+                {% if seg.target_distance_meters >= 1000 %}
+                    {{ "%.2f"|format(seg.target_distance_meters / 1000) }} km
+                {% else %}
+                    {{ seg.target_distance_meters|int }} m
+                {% endif %}
+            </em></p>
+            {% endif %}
+            {% if seg.target_pace_min_per_km %}
+            <p><em>Target pace:
+                {% set pm = seg.target_pace_min_per_km|int %}
+                {% set ps = ((seg.target_pace_min_per_km - pm) * 60)|int %}
+                {{ pm }}:{{ "%02d"|format(ps) }} /km
+            </em></p>
+            {% endif %}
+            {% if seg.target_rpe %}
+            <p><em>Target RPE: {{ seg.target_rpe }}</em></p>
+            {% endif %}
+
+            <div style="display:flex; flex-direction:column; gap:0.4rem; max-width:400px;">
+                <label>Actual Duration
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="duration_minutes_{{ i }}" min="0" placeholder="min" style="width:70px"
+                            value="{{ (seg.target_duration_seconds // 60) if seg.target_duration_seconds else '' }}">
+                        <span>:</span>
+                        <input type="number" name="duration_seconds_{{ i }}" min="0" max="59" placeholder="sec" style="width:70px"
+                            value="{{ (seg.target_duration_seconds % 60) if seg.target_duration_seconds else '' }}">
+                    </div>
+                </label>
+                <label>Actual Distance
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="distance_value_{{ i }}" min="0" step="0.01" placeholder="value" style="width:100px"
+                            value="{{ '%.2f'|format(seg.target_distance_meters / 1000) if seg.target_distance_meters else '' }}">
+                        <select name="distance_unit_{{ i }}">
+                            <option value="km">km</option>
+                            <option value="m">m</option>
+                        </select>
+                    </div>
+                </label>
+                <label>Actual Pace
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="pace_minutes_{{ i }}" min="0" placeholder="min" style="width:70px"
+                            value="{{ seg.target_pace_min_per_km|int if seg.target_pace_min_per_km else '' }}">
+                        <span>:</span>
+                        <input type="number" name="pace_seconds_{{ i }}" min="0" max="59" placeholder="sec" style="width:70px"
+                            value="{{ (((seg.target_pace_min_per_km - seg.target_pace_min_per_km|int) * 60)|int) if seg.target_pace_min_per_km else '' }}">
+                        <span>/km</span>
+                    </div>
+                </label>
+                <label>Actual RPE
+                    <input type="number" name="rpe_{{ i }}" min="1" max="10" step="0.5" style="width:80px"
+                        value="{{ seg.target_rpe or '' }}">
+                </label>
+                <label>Notes
+                    <input type="text" name="seg_notes_{{ i }}" placeholder="notes" style="width:300px">
+                </label>
+            </div>
+            <hr>
+        </div>
+        {% endfor %}
+    </div>
+
+    <h3>Add Segment</h3>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+        <select id="extra-segment-type">
+            {% for st in segment_types %}
+            <option value="{{ st }}">{{ st }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" onclick="addSegment()">Add</button>
+    </div>
+
+    <br>
+    <button type="submit" style="font-size:1.2rem; padding:0.5rem 2rem;">
+        Save Run
+    </button>
+</form>
+
+<div id="segment-config" data-count="{{ prefilled_segments|length }}"></div>
+
+<script>
+    let segmentCount = parseInt(document.getElementById('segment-config').dataset.count);
+
+    function removeSegment(index) {
+        document.getElementById(`segment-${index}`).remove();
+    }
+
+    function addSegment() {
+        const select = document.getElementById('extra-segment-type');
+        const segType = select.value;
+        const i = segmentCount;
+
+        const container = document.getElementById('segment-container');
+        const block = document.createElement('div');
+        block.className = 'segment-block';
+        block.id = `segment-${i}`;
+        block.innerHTML = `
+            <h3>Segment ${i + 1} — ${segType}
+                <button type="button" data-index="${i}"
+                    onclick="removeSegment(parseInt(this.dataset.index))">Remove</button>
+            </h3>
+            <input type="hidden" name="segment_type_${i}" value="${segType}">
+            <div style="display:flex; flex-direction:column; gap:0.4rem; max-width:400px;">
+                <label>Actual Duration
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="duration_minutes_${i}" min="0" placeholder="min" style="width:70px">
+                        <span>:</span>
+                        <input type="number" name="duration_seconds_${i}" min="0" max="59" placeholder="sec" style="width:70px">
+                    </div>
+                </label>
+                <label>Actual Distance
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="distance_value_${i}" min="0" step="0.01" placeholder="value" style="width:100px">
+                        <select name="distance_unit_${i}">
+                            <option value="km">km</option>
+                            <option value="m">m</option>
+                        </select>
+                    </div>
+                </label>
+                <label>Actual Pace
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="pace_minutes_${i}" min="0" placeholder="min" style="width:70px">
+                        <span>:</span>
+                        <input type="number" name="pace_seconds_${i}" min="0" max="59" placeholder="sec" style="width:70px">
+                        <span>/km</span>
+                    </div>
+                </label>
+                <label>Actual RPE
+                    <input type="number" name="rpe_${i}" min="1" max="10" step="0.5" style="width:80px">
+                </label>
+                <label>Notes
+                    <input type="text" name="seg_notes_${i}" placeholder="notes" style="width:300px">
+                </label>
+            </div>
+            <hr>
+        `;
+        container.appendChild(block);
+        segmentCount++;
+    }
+</script>
+
+{% endblock %}

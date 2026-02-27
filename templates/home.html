@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Workout Tracker{% endblock %}
+{% block content %}
+<h1>Welcome</h1>
+<p>Use the menu to navigate.</p>
+<div style="display:flex; flex-direction:column; gap:0.75rem; max-width:300px; margin-top:1.5rem;">
+    <a href="/schedule"><button style="width:100%;">📅 Schedule</button></a>
+    <a href="/log/gym"><button style="width:100%;">🏋️ Log Gym Workout</button></a>
+    <a href="/log/run"><button style="width:100%;">🏃 Log Run</button></a>
+    <a href="/history"><button style="width:100%;">📈 Exercise History</button></a>
+</div>
+{% endblock %}

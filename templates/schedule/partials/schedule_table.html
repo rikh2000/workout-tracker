@@ -1,0 +1,54 @@
+<div id="schedule-table">
+    {% if scheduled %}
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Template</th>
+                <th>Notes</th>
+                <th></th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in scheduled %}
+            <tr>
+                <td>{{ s.date }}</td>
+                <td>{{ s.workout_type }}</td>
+                <td>
+                    {% if s.workout_type == "gym" %}
+                        <a href="/gym-templates/{{ s.gym_template_id }}">{{ s.gym_template_name }}</a>
+                    {% else %}
+                        <a href="/run-templates/{{ s.run_template_id }}">{{ s.run_template_name }}</a>
+                    {% endif %}
+                </td>
+                <td>{{ s.notes or "—" }}</td>
+                <td>
+                    {% if s.workout_type == "gym" %}
+                        <a href="/log/gym/new?template_id={{ s.gym_template_id }}">
+                            <button type="button">Log</button>
+                        </a>
+                    {% else %}
+                        <a href="/log/run/new?template_id={{ s.run_template_id }}">
+                            <button type="button">Log</button>
+                        </a>
+                    {% endif %}
+                </td>
+                <td>
+                    <button
+                        hx-delete="/schedule/{{ s.id }}"
+                        hx-target="#schedule-table"
+                        hx-swap="outerHTML"
+                        hx-confirm="Remove this scheduled workout?">
+                        Remove
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+        <p>No workouts scheduled yet.</p>
+    {% endif %}
+</div>
