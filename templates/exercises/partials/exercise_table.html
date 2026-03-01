@@ -2,8 +2,8 @@
     <thead>
         <tr>
             <th>Name</th>
-            <th>Category</th>
             <th>Type</th>
+            <th>Muscle Groups</th>
             <th>Notes</th>
             <th></th>
             <th></th>
@@ -12,9 +12,9 @@
     <tbody>
         {% for ex in exercises %}
         <tr>
-            <td><a href="/history?exercise_id={{ ex.id }}">{{ ex.name }}</a></td>
-            <td>{{ ex.category }}</td>
+            <td><a href="/stats?tab=gym&exercise_id={{ ex.id }}">{{ ex.name }}</a></td>
             <td>{{ ex.type }}</td>
+            <td>{{ ex.muscle_groups or "—" }}</td>
             <td>{{ ex.notes or "" }}</td>
             <td><a href="/exercises/{{ ex.id }}/edit">Edit</a></td>
             <td>

@@ -7,20 +7,26 @@ from database import get_connection
 router = APIRouter(prefix="/exercises")
 templates = Jinja2Templates(directory="templates")
 
-CATEGORIES = ["push", "pull", "legs", "core", "other"]
 TYPES = ["reps", "timed"]
+MUSCLE_GROUPS = [
+    "Chest", "Front Delts", "Lateral Delts", "Rear Delts",
+    "Triceps", "Biceps", "Forearms",
+    "Lats", "Upper Back", "Lower Back",
+    "Abs", "Obliques",
+    "Quads", "Hamstrings", "Glutes", "Calves",
+]
 
 
 @router.get("", response_class=HTMLResponse)
 def exercise_list(request: Request):
     conn = get_connection()
-    exercises = conn.execute("SELECT * FROM exercises ORDER BY category, name").fetchall()
+    exercises = conn.execute("SELECT * FROM exercises ORDER BY name").fetchall()
     conn.close()
     return templates.TemplateResponse("exercises/list.html", {
         "request": request,
         "exercises": exercises,
-        "categories": CATEGORIES,
-        "types": TYPES
+        "types": TYPES,
+        "muscle_groups_list": MUSCLE_GROUPS,
     })
 
 
@@ -28,22 +34,22 @@ def exercise_list(request: Request):
 def add_exercise(
     request: Request,
     name: str = Form(...),
-    category: str = Form(...),
     type: str = Form(...),
-    notes: str = Form("")
+    notes: str = Form(""),
+    muscle_groups: str = Form("")
 ):
     conn = get_connection()
     try:
         conn.execute(
-            "INSERT INTO exercises (name, category, type, notes) VALUES (?, ?, ?, ?)",
-            (name.strip(), category, type, notes.strip())
+            "INSERT INTO exercises (name, category, type, notes, muscle_groups) VALUES (?, ?, ?, ?, ?)",
+            (name.strip(), '', type, notes.strip(), muscle_groups.strip() or None)
         )
         conn.commit()
-        exercises = conn.execute("SELECT * FROM exercises ORDER BY category, name").fetchall()
+        exercises = conn.execute("SELECT * FROM exercises ORDER BY name").fetchall()
         conn.close()
         return templates.TemplateResponse("exercises/partials/exercise_table.html", {
             "request": request,
-            "exercises": exercises
+            "exercises": exercises,
         })
     except Exception as e:
         conn.close()
@@ -55,7 +61,7 @@ def delete_exercise(request: Request, exercise_id: int):
     conn = get_connection()
     conn.execute("DELETE FROM exercises WHERE id = ?", (exercise_id,))
     conn.commit()
-    exercises = conn.execute("SELECT * FROM exercises ORDER BY category, name").fetchall()
+    exercises = conn.execute("SELECT * FROM exercises ORDER BY name").fetchall()
     conn.close()
     return templates.TemplateResponse("exercises/partials/exercise_table.html", {
         "request": request,
@@ -75,8 +81,8 @@ def edit_exercise_form(request: Request, exercise_id: int):
     return templates.TemplateResponse("exercises/edit.html", {
         "request": request,
         "exercise": exercise,
-        "categories": CATEGORIES,
-        "types": TYPES
+        "types": TYPES,
+        "muscle_groups_list": MUSCLE_GROUPS,
     })
 
 
@@ -85,17 +91,17 @@ def save_exercise_edit(
     request: Request,
     exercise_id: int,
     name: str = Form(...),
-    category: str = Form(...),
     type: str = Form(...),
-    notes: str = Form("")
+    notes: str = Form(""),
+    muscle_groups: str = Form("")
 ):
     conn = get_connection()
     try:
         conn.execute("""
             UPDATE exercises
-            SET name = ?, category = ?, type = ?, notes = ?
+            SET name = ?, type = ?, notes = ?, muscle_groups = ?
             WHERE id = ?
-        """, (name.strip(), category, type, notes.strip(), exercise_id))
+        """, (name.strip(), type, notes.strip(), muscle_groups.strip() or None, exercise_id))
         conn.commit()
         conn.close()
         return RedirectResponse(url="/exercises", status_code=303)

@@ -17,11 +17,12 @@ def init_db():
 
     -- Exercise library
     CREATE TABLE IF NOT EXISTS exercises (
-        id          INTEGER PRIMARY KEY AUTOINCREMENT,
-        name        TEXT NOT NULL UNIQUE,
-        category    TEXT NOT NULL,  -- push / pull / legs / core / other
-        type        TEXT NOT NULL,  -- reps / timed
-        notes       TEXT
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        name           TEXT NOT NULL UNIQUE,
+        category       TEXT NOT NULL,  -- push / pull / legs / core / other
+        type           TEXT NOT NULL,  -- reps / timed
+        notes          TEXT,
+        muscle_groups  TEXT            -- comma-separated, e.g. "Chest, Triceps, Front Delts"
     );
 
     -- Gym templates
@@ -121,6 +122,14 @@ def init_db():
     """)
 
     conn.commit()
+
+    # Migrations for existing databases
+    try:
+        conn.execute("ALTER TABLE exercises ADD COLUMN muscle_groups TEXT")
+        conn.commit()
+    except Exception:
+        pass  # column already exists
+
     conn.close()
     print("Database initialised successfully.")
 

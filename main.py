@@ -9,7 +9,8 @@ from routers import run_templates
 from routers import schedule
 from routers import completed_gym
 from routers import completed_run
-from routers import history
+from routers import log
+from routers import stats
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -22,7 +23,8 @@ app.include_router(run_templates.router)
 app.include_router(schedule.router)
 app.include_router(completed_gym.router)
 app.include_router(completed_run.router)
-app.include_router(history.router)
+app.include_router(log.router)
+app.include_router(stats.router)
 
 @app.on_event("startup")
 def startup():

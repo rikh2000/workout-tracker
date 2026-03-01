@@ -5,14 +5,15 @@
 <h1>Log Run Workout{% if template %}: {{ template.name }}{% endif %}</h1>
 
 <form method="post" action="/log/run/save">
+    <input type="hidden" name="run_template_id" id="run-template-id-input" value="{{ template.id if template else '' }}">
+    <input type="hidden" name="segment_order" id="segment-order" value="">
     {% if template %}
-    <input type="hidden" name="run_template_id" value="{{ template.id }}">
-    <input type="hidden" name="run_type" value="{{ template.run_type }}">
+    <input type="hidden" name="run_type" id="run-type-input" value="{{ template.run_type }}">
     {% else %}
     <label>Run Type
-        <select name="run_type">
-            {% for st in segment_types %}
-            <option value="{{ st }}">{{ st }}</option>
+        <select name="run_type" id="run-type-select">
+            {% for rt in run_types %}
+            <option value="{{ rt }}">{{ rt | replace("_", " ") | title }}</option>
             {% endfor %}
         </select>
     </label>
@@ -32,11 +33,24 @@
 
     <hr>
     <h2>Segments</h2>
+    {% if run_templates %}
+    <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
+        <select id="import-template-select">
+            <option value="">— import from template —</option>
+            {% for t in run_templates %}
+            <option value="{{ t.id }}">{{ t.name }} ({{ t.run_type | replace("_", " ") }})</option>
+            {% endfor %}
+        </select>
+        <button type="button" onclick="importFromTemplate()">Import</button>
+    </div>
+    {% endif %}
     <div id="segment-container">
         {% for seg in prefilled_segments %}
         {% set i = loop.index0 %}
         <div class="segment-block" id="segment-{{ i }}">
             <h3>
+                <button type="button" onclick="moveSegment(this, -1)" style="min-height:unset;padding:0 0.3rem;" title="Move up">↑</button>
+                <button type="button" onclick="moveSegment(this, 1)"  style="min-height:unset;padding:0 0.3rem;" title="Move down">↓</button>
                 Segment {{ i + 1 }} — {{ seg.segment_type }}
                 <button type="button"
                     data-index="{{ i }}"
@@ -132,10 +146,107 @@
 <div id="segment-config" data-count="{{ prefilled_segments|length }}"></div>
 
 <script>
+    const runTemplates = {{ run_templates | tojson }};
     let segmentCount = parseInt(document.getElementById('segment-config').dataset.count);
+
+    function updateSegmentOrder() {
+        const blocks = [...document.querySelectorAll('#segment-container .segment-block')];
+        document.getElementById('segment-order').value =
+            blocks.map(b => b.id.replace('segment-', '')).join(',');
+    }
+
+    function moveSegment(btn, dir) {
+        const block = btn.closest('.segment-block');
+        const container = document.getElementById('segment-container');
+        if (dir === -1 && block.previousElementSibling) {
+            container.insertBefore(block, block.previousElementSibling);
+        } else if (dir === 1 && block.nextElementSibling) {
+            container.insertBefore(block.nextElementSibling, block);
+        }
+        updateSegmentOrder();
+    }
+
+    function importFromTemplate() {
+        const select = document.getElementById('import-template-select');
+        const templateId = parseInt(select.value);
+        if (!templateId) return;
+        const tmpl = runTemplates.find(t => t.id === templateId);
+        if (!tmpl) return;
+
+        document.getElementById('segment-container').innerHTML = '';
+        segmentCount = 0;
+        document.getElementById('run-template-id-input').value = tmpl.id;
+
+        const runTypeSelect = document.getElementById('run-type-select');
+        const runTypeInput = document.getElementById('run-type-input');
+        if (runTypeSelect) runTypeSelect.value = tmpl.run_type;
+        if (runTypeInput) runTypeInput.value = tmpl.run_type;
+
+        tmpl.segments.forEach(seg => addSegmentFromTemplate(seg));
+        updateSegmentOrder();
+    }
+
+    function addSegmentFromTemplate(seg) {
+        const i = segmentCount;
+        const durMin = seg.target_duration_seconds ? Math.floor(seg.target_duration_seconds / 60) : '';
+        const durSec = seg.target_duration_seconds ? seg.target_duration_seconds % 60 : '';
+        const distVal = seg.target_distance_meters ? (seg.target_distance_meters / 1000).toFixed(2) : '';
+        const paceMin = seg.target_pace_min_per_km ? Math.floor(seg.target_pace_min_per_km) : '';
+        const paceSec = seg.target_pace_min_per_km
+            ? Math.round((seg.target_pace_min_per_km - Math.floor(seg.target_pace_min_per_km)) * 60) : '';
+        const rpe = seg.target_rpe || '';
+
+        const block = document.createElement('div');
+        block.className = 'segment-block';
+        block.id = `segment-${i}`;
+        block.innerHTML = `
+            <h3>
+                <button type="button" onclick="moveSegment(this, -1)" style="min-height:unset;padding:0 0.3rem;" title="Move up">↑</button>
+                <button type="button" onclick="moveSegment(this, 1)"  style="min-height:unset;padding:0 0.3rem;" title="Move down">↓</button>
+                Segment ${i + 1} — ${seg.segment_type}
+                <button type="button" data-index="${i}" onclick="removeSegment(parseInt(this.dataset.index))">Remove</button>
+            </h3>
+            <input type="hidden" name="segment_type_${i}" value="${seg.segment_type}">
+            <div style="display:flex; flex-direction:column; gap:0.4rem; max-width:400px;">
+                <label>Actual Duration
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="duration_minutes_${i}" min="0" placeholder="min" style="width:70px" value="${durMin}">
+                        <span>:</span>
+                        <input type="number" name="duration_seconds_${i}" min="0" max="59" placeholder="sec" style="width:70px" value="${durSec}">
+                    </div>
+                </label>
+                <label>Actual Distance
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="distance_value_${i}" min="0" step="0.01" placeholder="value" style="width:100px" value="${distVal}">
+                        <select name="distance_unit_${i}">
+                            <option value="km">km</option>
+                            <option value="m">m</option>
+                        </select>
+                    </div>
+                </label>
+                <label>Actual Pace
+                    <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <input type="number" name="pace_minutes_${i}" min="0" placeholder="min" style="width:70px" value="${paceMin}">
+                        <span>:</span>
+                        <input type="number" name="pace_seconds_${i}" min="0" max="59" placeholder="sec" style="width:70px" value="${paceSec}">
+                        <span>/km</span>
+                    </div>
+                </label>
+                <label>Actual RPE
+                    <input type="number" name="rpe_${i}" min="1" max="10" step="0.5" style="width:80px" value="${rpe}">
+                </label>
+                <label>Notes
+                    <input type="text" name="seg_notes_${i}" placeholder="notes" style="width:300px">
+                </label>
+            </div>
+            <hr>`;
+        document.getElementById('segment-container').appendChild(block);
+        segmentCount++;
+    }
 
     function removeSegment(index) {
         document.getElementById(`segment-${index}`).remove();
+        updateSegmentOrder();
     }
 
     function addSegment() {
@@ -148,7 +259,10 @@
         block.className = 'segment-block';
         block.id = `segment-${i}`;
         block.innerHTML = `
-            <h3>Segment ${i + 1} — ${segType}
+            <h3>
+                <button type="button" onclick="moveSegment(this, -1)" style="min-height:unset;padding:0 0.3rem;" title="Move up">↑</button>
+                <button type="button" onclick="moveSegment(this, 1)"  style="min-height:unset;padding:0 0.3rem;" title="Move down">↓</button>
+                Segment ${i + 1} — ${segType}
                 <button type="button" data-index="${i}"
                     onclick="removeSegment(parseInt(this.dataset.index))">Remove</button>
             </h3>
@@ -189,7 +303,11 @@
         `;
         container.appendChild(block);
         segmentCount++;
+        updateSegmentOrder();
     }
+
+    // initialise order field on page load
+    updateSegmentOrder();
 </script>
 
 {% endblock %}

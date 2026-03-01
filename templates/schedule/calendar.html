@@ -1,0 +1,425 @@
+{% extends "base.html" %}
+{% block title %}Schedule – Workout Tracker{% endblock %}
+{% block content %}
+
+<style>
+    .cal-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1rem;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    .cal-nav h2 { margin: 0; }
+    .view-toggle { display: flex; gap: 0.5rem; }
+    .view-toggle a button { min-width: 80px; }
+    .active-view { background: #2c3e50; }
+    .active-view:hover { background: #1a252f; }
+
+    /* Month grid */
+    .month-grid {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .month-grid th {
+        background: #2c3e50;
+        color: white;
+        text-align: center;
+        padding: 0.5rem;
+        font-size: 0.85rem;
+    }
+    .month-grid td {
+        vertical-align: top;
+        border: 1px solid #e0e0e0;
+        padding: 0.25rem;
+        min-height: 80px;
+        width: 14.28%;
+        cursor: pointer;
+        background: white;
+    }
+    .month-grid td:hover { background: #f0f7ff; }
+    .month-grid td.today { background: #e8f4fd; }
+    .month-grid td.other-month { background: #f9f9f9; color: #bbb; }
+    .day-number {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #555;
+        margin-bottom: 0.2rem;
+    }
+    .today .day-number {
+        background: #4a90d9;
+        color: white;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Week grid */
+    .week-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .week-day {
+        background: white;
+        border-radius: 8px;
+        padding: 0.5rem;
+        min-height: 120px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        cursor: pointer;
+    }
+    .week-day:hover { background: #f0f7ff; }
+    .week-day.today { border: 2px solid #4a90d9; }
+    .week-day-header {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #888;
+        margin-bottom: 0.3rem;
+    }
+    .week-day-number {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #2c3e50;
+        margin-bottom: 0.5rem;
+    }
+    .today .week-day-number { color: #4a90d9; }
+
+    /* Workout pills */
+    .pill {
+        display: block;
+        font-size: 0.75rem;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        margin-bottom: 0.2rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        text-decoration: none;
+        color: white;
+    }
+    .pill-planned-gym { background: #e67e22; }
+    .pill-planned-run { background: #4a90d9; }
+    .pill-done-gym { background: #27ae60; }
+    .pill-done-run { background: #2ecc71; color: #1a5c30; }
+
+    /* Modal */
+    .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 200;
+        align-items: center;
+        justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        width: 90%;
+        max-width: 420px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    .modal h3 { margin-top: 0; }
+    .modal-close {
+        float: right;
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: #888;
+        min-height: unset;
+        padding: 0;
+    }
+</style>
+
+<div class="cal-nav">
+    <a href="/schedule?view={{ view }}&year={{ prev_year }}&month={{ prev_month }}&day={{ prev_day }}">
+        <button>←</button>
+    </a>
+    <h2>{{ month_name }}</h2>
+    <a href="/schedule?view={{ view }}&year={{ next_year }}&month={{ next_month }}&day={{ next_day }}">
+        <button>→</button>
+    </a>
+    <div class="view-toggle">
+        <a href="/schedule?view=month&year={{ year }}&month={{ month }}&day={{ day }}">
+            <button class="{% if view == 'month' %}active-view{% endif %}">Month</button>
+        </a>
+        <a href="/schedule?view=week&year={{ year }}&month={{ month }}&day={{ day }}">
+            <button class="{% if view == 'week' %}active-view{% endif %}">Week</button>
+        </a>
+    </div>
+</div>
+
+{% if view == "month" %}
+<div class="table-wrap">
+<table class="month-grid">
+    <thead>
+        <tr>
+            {% for day_name in ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] %}
+            <th>{{ day_name }}</th>
+            {% endfor %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for week in weeks %}
+        <tr>
+            {% for d in week %}
+            {% set ds = d.isoformat() %}
+            {% set day_data = by_date.get(ds, {"scheduled": [], "completed": []}) %}
+            {% set completed_types = day_data.completed | map(attribute='workout_type') | list %}
+            <td class="{% if d == today %}today{% endif %} {% if d.month != month %}other-month{% endif %}"
+                onclick="openDayModal('{{ ds }}')">
+                <div class="day-number">{{ d.day }}</div>
+                {% for s in day_data.scheduled %}
+                    {% if s.workout_type not in completed_types %}
+                    <span class="pill pill-planned-{{ s.workout_type }} workout-pill"
+                          data-id="{{ s.id }}"
+                          data-type="{{ s.workout_type }}"
+                          data-name="{{ s.gym_template_name or s.run_template_name }}"
+                          data-date="{{ ds }}">
+                        {{ "🏋️" if s.workout_type == "gym" else "🏃" }}
+                        {{ s.gym_template_name or s.run_template_name or s.workout_type }}
+                    </span>
+                    {% endif %}
+                {% endfor %}
+                {% for c in day_data.completed %}
+                    <span class="pill pill-done-{{ c.workout_type }}"
+                          data-id="{{ c.id }}"
+                          data-type="{{ c.workout_type }}"
+                          data-name="{{ c.template_name or c.workout_type }}"
+                          onclick="event.stopPropagation(); openCompletedModal(parseInt(this.dataset.id), this.dataset.type, this.dataset.name)">
+                        ✓ {{ c.template_name or c.workout_type }}
+                    </span>
+                {% endfor %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+
+{% else %}
+<div class="week-grid">
+    {% for d in days %}
+    {% set ds = d.isoformat() %}
+    {% set day_data = by_date.get(ds, {"scheduled": [], "completed": []}) %}
+    {% set completed_types = day_data.completed | map(attribute='workout_type') | list %}
+    <div class="week-day {% if d == today %}today{% endif %}"
+         onclick="openDayModal('{{ ds }}')">
+        <div class="week-day-header">{{ d.strftime("%a") }}</div>
+        <div class="week-day-number">{{ d.day }}</div>
+        {% for s in day_data.scheduled %}
+            {% if s.workout_type not in completed_types %}
+            <span class="pill pill-planned-{{ s.workout_type }} workout-pill"
+                    data-id="{{ s.id }}"
+                    data-type="{{ s.workout_type }}"
+                    data-name="{{ s.gym_template_name or s.run_template_name }}"
+                    data-date="{{ ds }}">
+                {{ "🏋️" if s.workout_type == "gym" else "🏃" }}
+                {{ s.gym_template_name or s.run_template_name or s.workout_type }}
+            </span>
+            {% endif %}
+        {% endfor %}
+        {% for c in day_data.completed %}
+            <span class="pill pill-done-{{ c.workout_type }}"
+                  data-id="{{ c.id }}"
+                  data-type="{{ c.workout_type }}"
+                  data-name="{{ c.template_name or c.workout_type }}"
+                  onclick="event.stopPropagation(); openCompletedModal(parseInt(this.dataset.id), this.dataset.type, this.dataset.name)">
+                ✓ {{ c.template_name or c.workout_type }}
+            </span>
+        {% endfor %}
+    </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Modal: schedule a new workout on a day -->
+<div class="modal-overlay" id="day-modal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal('day-modal')">×</button>
+        <h3 id="modal-date-label"></h3>
+        <div style="display:flex; gap:0.5rem; margin-bottom:1rem;">
+            <a id="modal-log-gym-link" href="#">
+                <button type="button" style="background:#27ae60;">🏋️ Log Gym</button>
+            </a>
+            <a id="modal-log-run-link" href="#">
+                <button type="button" style="background:#2980b9;">🏃 Log Run</button>
+            </a>
+        </div>
+        <hr style="margin-bottom:1rem;">
+        <h4 style="margin:0 0 0.5rem;">Schedule a workout</h4>
+        <form method="post" action="/schedule/add">
+            <input type="hidden" name="date" id="modal-date-input">
+            <input type="hidden" name="redirect_view" value="{{ view }}">
+            <input type="hidden" name="redirect_year" value="{{ year }}">
+            <input type="hidden" name="redirect_month" value="{{ month }}">
+            <input type="hidden" name="redirect_day" value="{{ day }}">
+
+            <label>Type
+                <select name="workout_type" id="modal-type-select"
+                        onchange="updateModalTemplate()">
+                    <option value="gym">Gym</option>
+                    <option value="run">Run</option>
+                </select>
+            </label>
+
+            <div id="modal-gym-field">
+                <label>Gym Template
+                    <select name="gym_template_id">
+                        {% for t in gym_templates %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+            <div id="modal-run-field" style="display:none">
+                <label>Run Template
+                    <select name="run_template_id">
+                        {% for t in run_templates %}
+                        <option value="{{ t.id }}">{{ t.name }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+            </div>
+
+            <label>Notes (optional)
+                <textarea name="notes" rows="2"></textarea>
+            </label>
+            <button type="submit">Add to Schedule</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: view/log/delete a planned workout -->
+<div class="modal-overlay" id="workout-modal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal('workout-modal')">×</button>
+        <h3 id="wm-title"></h3>
+        <p id="wm-date"></p>
+        <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">
+            <a id="wm-log-link" href="#">
+                <button style="width:100%;">Log this workout</button>
+            </a>
+            <form id="wm-delete-form" method="post">
+                <input type="hidden" name="redirect_view" value="{{ view }}">
+                <input type="hidden" name="redirect_year" value="{{ year }}">
+                <input type="hidden" name="redirect_month" value="{{ month }}">
+                <input type="hidden" name="redirect_day" value="{{ day }}">
+                <button type="submit" class="danger" style="width:100%;">Delete from schedule</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: view/edit/delete a completed workout -->
+<div class="modal-overlay" id="completed-modal">
+    <div class="modal">
+        <button class="modal-close" onclick="closeModal('completed-modal')">×</button>
+        <h3 id="cm-title"></h3>
+        <div style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">
+            <a id="cm-view-link" href="#">
+                <button style="width:100%;">View</button>
+            </a>
+            <a id="cm-edit-link" href="#">
+                <button style="width:100%; background:#e67e22;">Edit</button>
+            </a>
+            <form id="cm-delete-form" method="post">
+                <input type="hidden" name="redirect_view" value="{{ view }}">
+                <input type="hidden" name="redirect_year" value="{{ year }}">
+                <input type="hidden" name="redirect_month" value="{{ month }}">
+                <input type="hidden" name="redirect_day" value="{{ day }}">
+                <button type="submit" class="danger" style="width:100%;">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- scheduled workout data for JS log links -->
+<div id="scheduled-data" data-scheduled='{{ (by_date.values() | list | tojson) }}'></div>
+
+<script>
+(function() {
+    // build a lookup of scheduled id -> workout data
+    const scheduledData = JSON.parse(document.getElementById('scheduled-data').dataset.scheduled);
+    const scheduledMap = {};
+    scheduledData.forEach(day => {
+        day.scheduled.forEach(s => {
+            scheduledMap[s.id] = s;
+        });
+    });
+
+    window.openDayModal = function(dateStr) {
+        document.getElementById('modal-date-input').value = dateStr;
+        document.getElementById('modal-date-label').textContent = dateStr;
+        document.getElementById('modal-log-gym-link').href = `/log/gym/new?date=${dateStr}`;
+        document.getElementById('modal-log-run-link').href = `/log/run/new?date=${dateStr}`;
+        document.getElementById('day-modal').classList.add('open');
+    };
+
+    window.openWorkoutModal = function(id, type, name, dateStr) {
+        document.getElementById('wm-title').textContent = name || type;
+        document.getElementById('wm-date').textContent = dateStr;
+        document.getElementById('wm-log-link').href = '#';
+        document.getElementById('wm-delete-form').action = `/schedule/${id}/delete`;
+        document.getElementById('workout-modal').classList.add('open');
+
+        const s = scheduledMap[id];
+        if (s) {
+            const templateId = type === 'gym' ? s.gym_template_id : s.run_template_id;
+            document.getElementById('wm-log-link').href =
+                `/log/${type}/new?template_id=${templateId}&date=${dateStr}`;
+        }
+    };
+
+    window.closeModal = function(id) {
+        document.getElementById(id).classList.remove('open');
+    };
+
+    window.openCompletedModal = function(id, type, name) {
+        document.getElementById('cm-title').textContent = name || type;
+        document.getElementById('cm-view-link').href = `/log/${type}/${id}`;
+        document.getElementById('cm-edit-link').href = `/log/${type}/${id}/edit`;
+        document.getElementById('cm-delete-form').action = `/log/${type}/${id}/delete`;
+        document.getElementById('completed-modal').classList.add('open');
+    };
+
+    // handle planned workout pill clicks
+    document.addEventListener('click', e => {
+        const pill = e.target.closest('.workout-pill');
+        if (pill) {
+            e.stopPropagation();
+            window.openWorkoutModal(
+                parseInt(pill.dataset.id),
+                pill.dataset.type,
+                pill.dataset.name,
+                pill.dataset.date
+            );
+        }
+    });
+
+    window.updateModalTemplate = function() {
+        const type = document.getElementById('modal-type-select').value;
+        document.getElementById('modal-gym-field').style.display = type === 'gym' ? 'block' : 'none';
+        document.getElementById('modal-run-field').style.display = type === 'run' ? 'block' : 'none';
+    };
+
+    // close modal when clicking overlay
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) overlay.classList.remove('open');
+        });
+    });
+})();
+</script>
+
+{% endblock %}

@@ -11,13 +11,6 @@
     <label>Name
         <input type="text" name="name" required>
     </label>
-    <label>Category
-        <select name="category">
-            {% for cat in categories %}
-            <option value="{{ cat }}">{{ cat }}</option>
-            {% endfor %}
-        </select>
-    </label>
     <label>Type
         <select name="type">
             {% for t in types %}
@@ -25,6 +18,16 @@
             {% endfor %}
         </select>
     </label>
+    <div>
+        <div class="field-label">Muscle Groups (optional)</div>
+        <div class="muscle-chips" id="add-chips">
+            {% for mg in muscle_groups_list %}
+            <button type="button" class="muscle-chip" data-value="{{ mg }}"
+                    onclick="toggleChip(this, 'add-input')">{{ mg }}</button>
+            {% endfor %}
+        </div>
+        <input type="hidden" name="muscle_groups" id="add-input">
+    </div>
     <label>Notes (optional)
         <textarea name="notes" rows="2"></textarea>
     </label>

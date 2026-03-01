@@ -87,7 +87,7 @@ def template_detail(request: Request, template_id: int):
         ORDER BY gte.order_index
     """, (template_id,)).fetchall()
     all_exercises = conn.execute(
-        "SELECT * FROM exercises ORDER BY category, name"
+        "SELECT * FROM exercises ORDER BY name"
     ).fetchall()
     conn.close()
     return templates.TemplateResponse("gym_templates/detail.html", {

@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% block title %}Statistics – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Statistics</h1>
+
+<!-- Window selector -->
+<div class="flex-row" style="margin-bottom:1.5rem; gap:0.5rem;">
+    <a href="/stats?window=4w&tab={{ tab }}"><button class="{% if window == '4w' %}active-btn{% endif %}">Last 4 weeks</button></a>
+    <a href="/stats?window=3m&tab={{ tab }}"><button class="{% if window == '3m' %}active-btn{% endif %}">3 months</button></a>
+    <a href="/stats?window=12m&tab={{ tab }}"><button class="{% if window == '12m' %}active-btn{% endif %}">12 months</button></a>
+    <a href="/stats?window=all&tab={{ tab }}"><button class="{% if window == 'all' %}active-btn{% endif %}">All time</button></a>
+</div>
+
+<!-- Tab buttons -->
+<div class="flex-row" style="margin-bottom:1.5rem; gap:0.5rem;">
+    <a href="/stats?window={{ window }}&tab=running"><button class="{% if tab == 'running' %}active-btn{% endif %}">🏃 Running</button></a>
+    <a href="/stats?window={{ window }}&tab=gym"><button class="{% if tab == 'gym' %}active-btn{% endif %}">🏋️ Gym</button></a>
+</div>
+
+<!-- ── RUNNING TAB ──────────────────────────────────────────────────────── -->
+<div id="tab-running" {% if tab != 'running' %}style="display:none"{% endif %}>
+
+    <!-- Summary cards -->
+    <div class="flex-row" style="gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+        <div class="card" style="flex:1; min-width:140px; text-align:center; padding:1rem;">
+            <div style="font-size:2rem; font-weight:bold;">{{ total_runs }}</div>
+            <div style="color:#888;">Runs</div>
+        </div>
+        <div class="card" style="flex:1; min-width:140px; text-align:center; padding:1rem;">
+            <div style="font-size:2rem; font-weight:bold;">{{ total_km }}</div>
+            <div style="color:#888;">Total km</div>
+        </div>
+        <div class="card" style="flex:1; min-width:140px; text-align:center; padding:1rem;">
+            <div style="font-size:2rem; font-weight:bold;">{{ avg_weekly_km }}</div>
+            <div style="color:#888;">Avg km/week</div>
+        </div>
+    </div>
+
+    <!-- Weekly mileage chart -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Weekly Mileage</h2>
+        {% if mileage %}
+        <canvas id="mileageChart"></canvas>
+        {% else %}
+        <p style="color:#888;">No run data in this period.</p>
+        {% endif %}
+    </div>
+
+    <!-- RPE zones chart -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>RPE Zone Distribution (minutes)</h2>
+        {% if rpe_weeks %}
+        <canvas id="rpeChart"></canvas>
+        {% else %}
+        <p style="color:#888;">No RPE data in this period.</p>
+        {% endif %}
+    </div>
+
+    <!-- Run type breakdown -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Run Type Breakdown</h2>
+        {% if run_types %}
+        <div style="display:flex; gap:2rem; align-items:center; flex-wrap:wrap;">
+            <canvas id="runTypeChart" style="max-width:280px; max-height:280px;"></canvas>
+            <table style="flex:1;">
+                <thead>
+                    <tr><th>Type</th><th>Sessions</th><th>km</th></tr>
+                </thead>
+                <tbody>
+                    {% for rt in run_types %}
+                    <tr>
+                        <td>{{ rt.run_type or "—" }}</td>
+                        <td>{{ rt.count }}</td>
+                        <td>{{ "%.1f"|format(rt.km) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="color:#888;">No run data in this period.</p>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ── GYM TAB ────────────────────────────────────────────────────────────── -->
+<div id="tab-gym" {% if tab != 'gym' %}style="display:none"{% endif %}>
+
+    <!-- Muscle group distribution -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Muscle Group Distribution</h2>
+        {% if muscle_groups %}
+        <canvas id="muscleChart"></canvas>
+        {% else %}
+        <p style="color:#888;">No gym data in this period, or exercises have no muscle groups set.</p>
+        {% endif %}
+    </div>
+
+    <!-- Exercise progression -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Exercise Progression</h2>
+        <div style="margin-bottom:1rem;">
+            <label for="exercise-picker">Select exercise:</label>
+            <select id="exercise-picker" onchange="loadExercise(this.value)" style="margin-left:0.5rem;">
+                <option value="">— choose —</option>
+                {% for ex in all_exercises %}
+                <option value="{{ ex.id }}"
+                    {% if exercise_id and ex.id == exercise_id %}selected{% endif %}>
+                    {{ ex.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="exercise-charts" style="display:none;">
+            <h3 id="exercise-title" style="margin-bottom:1rem;"></h3>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-bottom:1.5rem;">
+                <div>
+                    <h4>Estimated 1RM over time</h4>
+                    <canvas id="orm-chart"></canvas>
+                </div>
+                <div>
+                    <h4>Session volume (kg)</h4>
+                    <canvas id="vol-chart"></canvas>
+                </div>
+            </div>
+
+            <h4>Personal Records</h4>
+            <table id="pr-table">
+                <thead>
+                    <tr><th>Reps</th><th>Best weight (kg)</th></tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="exercise-empty" style="color:#888;">
+            Select an exercise above to view progression charts.
+        </div>
+    </div>
+
+</div>
+
+<!-- Hidden data for Jinja-rendered charts -->
+<div id="stats-data"
+    data-mileage='{{ mileage | tojson }}'
+    data-rpe-weeks='{{ rpe_weeks | tojson }}'
+    data-run-types='{{ run_types | tojson }}'
+    data-muscle-groups='{{ muscle_groups | tojson }}'
+    data-window='{{ window }}'
+    data-exercise-id='{{ exercise_id or "" }}'>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+    const el = document.getElementById('stats-data');
+    const mileage     = JSON.parse(el.dataset.mileage);
+    const rpeWeeks    = JSON.parse(el.dataset.rpeWeeks);
+    const runTypes    = JSON.parse(el.dataset.runTypes);
+    const muscleData  = JSON.parse(el.dataset.muscleGroups);   // [[name, sets], ...]
+    const currentWin  = el.dataset.window;
+    const initExId    = el.dataset.exerciseId;
+
+    // Track chart instances so we can destroy before re-render
+    let ormChartInst = null, volChartInst = null;
+
+    // ── Weekly mileage: bar + rolling avg line ────────────────────────────
+    if (mileage.length) {
+        new Chart(document.getElementById('mileageChart'), {
+            type: 'bar',
+            data: {
+                labels: mileage.map(r => r.week),
+                datasets: [
+                    {
+                        label: 'Weekly km',
+                        data: mileage.map(r => r.km),
+                        backgroundColor: '#4a90d9',
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: '4-week avg',
+                        data: mileage.map(r => r.rolling_avg),
+                        type: 'line',
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'transparent',
+                        tension: 0.3,
+                        pointRadius: 3,
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: 'km' } }
+                }
+            }
+        });
+    }
+
+    // ── RPE stacked bar ───────────────────────────────────────────────────
+    if (rpeWeeks.length) {
+        const zoneOrder  = ['Easy', 'Moderate', 'Hard', 'Max'];
+        const zoneColors = ['#2ecc71', '#f1c40f', '#e67e22', '#e74c3c'];
+        new Chart(document.getElementById('rpeChart'), {
+            type: 'bar',
+            data: {
+                labels: rpeWeeks.map(r => r.week),
+                datasets: zoneOrder.map((z, i) => ({
+                    label: z,
+                    data: rpeWeeks.map(r => r[z] || 0),
+                    backgroundColor: zoneColors[i]
+                }))
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, title: { display: true, text: 'minutes' } }
+                }
+            }
+        });
+    }
+
+    // ── Run type doughnut ─────────────────────────────────────────────────
+    if (runTypes.length) {
+        const typeColors = ['#4a90d9','#2ecc71','#e67e22','#9b59b6','#1abc9c','#e74c3c','#f1c40f'];
+        new Chart(document.getElementById('runTypeChart'), {
+            type: 'doughnut',
+            data: {
+                labels: runTypes.map(r => r.run_type || 'Unknown'),
+                datasets: [{
+                    data: runTypes.map(r => parseFloat((r.km || 0).toFixed(1))),
+                    backgroundColor: runTypes.map((_, i) => typeColors[i % typeColors.length])
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+    }
+
+    // ── Muscle group horizontal bar ───────────────────────────────────────
+    if (muscleData.length) {
+        new Chart(document.getElementById('muscleChart'), {
+            type: 'bar',
+            data: {
+                labels: muscleData.map(d => d[0]),
+                datasets: [{
+                    label: 'Sets',
+                    data: muscleData.map(d => d[1]),
+                    backgroundColor: '#9b59b6'
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                scales: {
+                    x: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'sets' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // ── Exercise progression (dynamic fetch) ──────────────────────────────
+    window.loadExercise = function(exerciseId) {
+        if (!exerciseId) {
+            document.getElementById('exercise-charts').style.display = 'none';
+            document.getElementById('exercise-empty').style.display = '';
+            return;
+        }
+
+        fetch(`/stats/exercise/${exerciseId}?window=${currentWin}`)
+            .then(r => r.json())
+            .then(data => renderExerciseCharts(data));
+    };
+
+    function renderExerciseCharts(data) {
+        document.getElementById('exercise-charts').style.display = '';
+        document.getElementById('exercise-empty').style.display = 'none';
+        document.getElementById('exercise-title').textContent = data.exercise_name;
+
+        const sessions = data.sessions || [];
+        const prs      = data.prs      || [];
+
+        // Destroy previous chart instances
+        if (ormChartInst) { ormChartInst.destroy(); ormChartInst = null; }
+        if (volChartInst) { volChartInst.destroy(); volChartInst = null; }
+
+        // 1RM line chart
+        ormChartInst = new Chart(document.getElementById('orm-chart'), {
+            type: 'line',
+            data: {
+                labels: sessions.map(s => s.date),
+                datasets: [{
+                    label: 'Est. 1RM (kg)',
+                    data: sessions.map(s => s.estimated_1rm),
+                    borderColor: '#4a90d9',
+                    backgroundColor: '#4a90d922',
+                    tension: 0.3,
+                    pointRadius: 4,
+                    spanGaps: true
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: false, title: { display: true, text: 'kg' } } }
+            }
+        });
+
+        // Volume bar chart
+        volChartInst = new Chart(document.getElementById('vol-chart'), {
+            type: 'bar',
+            data: {
+                labels: sessions.map(s => s.date),
+                datasets: [{
+                    label: 'Volume (kg)',
+                    data: sessions.map(s => s.volume_kg),
+                    backgroundColor: '#e67e22'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true, title: { display: true, text: 'kg' } } }
+            }
+        });
+
+        // PRs table
+        const tbody = document.querySelector('#pr-table tbody');
+        tbody.innerHTML = prs.map(p =>
+            `<tr><td>${p.reps}</td><td>${p.weight_kg}</td></tr>`
+        ).join('');
+    }
+
+    // Auto-load if exercise_id was pre-selected via URL
+    if (initExId) {
+        loadExercise(initExId);
+    }
+
+})();
+</script>
+
+<style>
+    .active-btn { background: #2c3e50; }
+    .active-btn:hover { background: #1a252f; }
+</style>
+
+{% endblock %}

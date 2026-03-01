@@ -11,6 +11,7 @@
                 <th>Notes</th>
                 <th></th>
                 <th></th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -35,6 +36,7 @@
                 </td>
                 <td>{{ w.notes or "—" }}</td>
                 <td><a href="/log/run/{{ w.id }}">View</a></td>
+                <td><a href="/log/run/{{ w.id }}/edit">Edit</a></td>
                 <td>
                     <button
                         hx-delete="/log/run/{{ w.id }}"

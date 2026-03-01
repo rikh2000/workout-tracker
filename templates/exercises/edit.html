@@ -8,15 +8,6 @@
     <label>Name
         <input type="text" name="name" value="{{ exercise.name }}" required>
     </label>
-    <label>Category
-        <select name="category">
-            {% for cat in categories %}
-            <option value="{{ cat }}" {% if cat == exercise.category %}selected{% endif %}>
-                {{ cat }}
-            </option>
-            {% endfor %}
-        </select>
-    </label>
     <label>Type
         <select name="type">
             {% for t in types %}
@@ -26,6 +17,30 @@
             {% endfor %}
         </select>
     </label>
+    <div>
+        <div class="field-label">Muscle Groups (optional)</div>
+        <div class="muscle-chips" id="edit-chips">
+            {% for mg in muscle_groups_list %}
+            <button type="button" class="muscle-chip" data-value="{{ mg }}"
+                    onclick="toggleChip(this, 'edit-input')">{{ mg }}</button>
+            {% endfor %}
+        </div>
+        <input type="hidden" name="muscle_groups" id="edit-input"
+               value="{{ exercise.muscle_groups or '' }}">
+    </div>
+
+    <script>
+    (function() {
+        const existing = document.getElementById('edit-input').value;
+        if (existing) {
+            const vals = existing.split(',').map(v => v.trim().toLowerCase());
+            document.querySelectorAll('#edit-chips .muscle-chip').forEach(btn => {
+                if (vals.includes(btn.dataset.value.toLowerCase()))
+                    btn.classList.add('active');
+            });
+        }
+    })();
+    </script>
     <label>Notes (optional)
         <textarea name="notes" rows="2">{{ exercise.notes or "" }}</textarea>
     </label>

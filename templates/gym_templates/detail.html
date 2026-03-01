@@ -14,7 +14,7 @@
                 onchange="updateTargetField()">
             {% for ex in all_exercises %}
             <option value="{{ ex.id }}" data-type="{{ ex.type }}">
-                {{ ex.name }} ({{ ex.category }}, {{ ex.type }})
+                {{ ex.name }} ({{ ex.type }})
             </option>
             {% endfor %}
         </select>

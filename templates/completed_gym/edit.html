@@ -1,36 +1,25 @@
 {% extends "base.html" %}
-{% block title %}Log Gym Workout – Workout Tracker{% endblock %}
+{% block title %}Edit Gym Workout – Workout Tracker{% endblock %}
 {% block content %}
 
-<h1>Log Gym Workout{% if template %}: {{ template.name }}{% endif %}</h1>
+<h1>Edit Gym Workout – {{ workout.date }}</h1>
 
-<form method="post" action="/log/gym/save">
-    <input type="hidden" name="gym_template_id" id="gym-template-id-input" value="{{ template.id if template else '' }}">
+<form method="post" action="/log/gym/{{ workout.id }}/update">
+    <input type="hidden" name="gym_template_id" value="{{ workout.gym_template_id or '' }}">
     <input type="hidden" name="exercise_order" id="exercise-order" value="">
 
     <label>Date
-        <input type="date" name="date" value="{{ today }}" required>
+        <input type="date" name="date" value="{{ workout.date }}" required>
     </label>
 
     <label>Overall Notes
-        <textarea name="notes" rows="2"></textarea>
+        <textarea name="notes" rows="2">{{ workout.notes or '' }}</textarea>
     </label>
 
     <hr>
     <h2>Exercises</h2>
-    {% if gym_templates %}
-    <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:1rem; flex-wrap:wrap;">
-        <select id="import-template-select">
-            <option value="">— import from template —</option>
-            {% for t in gym_templates %}
-            <option value="{{ t.id }}">{{ t.name }}</option>
-            {% endfor %}
-        </select>
-        <button type="button" onclick="importFromTemplate()">Import</button>
-    </div>
-    {% endif %}
     <div id="exercise-container">
-        {% for ex in prefilled_exercises %}
+        {% for ex in exercises %}
         {% set i = loop.index0 %}
         <div class="exercise-block" id="exercise-{{ i }}">
             <input type="hidden" name="exercise_id_{{ i }}" value="{{ ex.exercise_id }}">
@@ -45,44 +34,33 @@
                     onclick="removeExercise(parseInt(this.dataset.index))">Remove</button>
             </h3>
 
-            {% if ex.target_weight_kg %}
-                <p><em>Target: {{ ex.target_sets }} sets
-                {% if ex.exercise_type == "reps" %}× {{ ex.target_reps }} reps{% else %}× {{ ex.target_seconds }}s{% endif %}
-                @ {{ ex.target_weight_kg }} kg
-                {% if ex.target_rpe %} @ RPE {{ ex.target_rpe }}{% endif %}
-                </em></p>
-            {% else %}
-                <p><em>Target: {{ ex.target_sets }} sets
-                {% if ex.exercise_type == "reps" %}× {{ ex.target_reps }} reps{% else %}× {{ ex.target_seconds }}s{% endif %}
-                {% if ex.target_rpe %} @ RPE {{ ex.target_rpe }}{% endif %}
-                </em></p>
-            {% endif %}
-
             <div id="sets-{{ i }}">
-                {% for s in range(ex.target_sets) %}
+                {% for s in ex.sets %}
+                {% set si = loop.index0 %}
                 <div class="set-row" style="display:flex; gap:1rem; align-items:center; margin:0.3rem 0;">
-                    <span>Set {{ s + 1 }}</span>
-                    <input type="number" name="weight_{{ i }}_{{ s }}"
+                    <span>Set {{ si + 1 }}</span>
+                    <input type="number" name="weight_{{ i }}_{{ si }}"
                            placeholder="kg" step="0.5" min="0" style="width:70px"
-                           value="{{ ex.target_weight_kg or '' }}">
+                           value="{{ s.weight_kg or '' }}">
                     {% if ex.exercise_type == "reps" %}
-                    <input type="number" name="reps_{{ i }}_{{ s }}"
+                    <input type="number" name="reps_{{ i }}_{{ si }}"
                            placeholder="reps" min="0" style="width:70px"
-                           value="{{ ex.target_reps or '' }}">
+                           value="{{ s.reps or '' }}">
                     {% else %}
-                    <input type="number" name="seconds_{{ i }}_{{ s }}"
+                    <input type="number" name="seconds_{{ i }}_{{ si }}"
                            placeholder="sec" min="0" style="width:70px"
-                           value="{{ ex.target_seconds or '' }}">
+                           value="{{ s.seconds or '' }}">
                     {% endif %}
-                    <input type="text" name="set_notes_{{ i }}_{{ s }}"
-                           placeholder="notes" style="width:150px">
+                    <input type="text" name="set_notes_{{ i }}_{{ si }}"
+                           placeholder="notes" style="width:150px"
+                           value="{{ s.notes or '' }}">
                     <button type="button" onclick="removeSet(this)">✕</button>
                 </div>
                 {% endfor %}
             </div>
 
             <input type="hidden" name="set_count_{{ i }}"
-                   id="set_count_{{ i }}" value="{{ ex.target_sets }}">
+                   id="set_count_{{ i }}" value="{{ ex.sets | length }}">
 
             <button type="button"
                 data-index="{{ i }}"
@@ -109,14 +87,16 @@
 
     <br>
     <button type="submit" style="font-size:1.2rem; padding:0.5rem 2rem;">
-        Save Workout
+        Save Changes
     </button>
 </form>
 
-<div id="exercise-config" data-count="{{ prefilled_exercises|length }}"></div>
+<br>
+<a href="/log/gym/{{ workout.id }}">← Cancel</a>
+
+<div id="exercise-config" data-count="{{ exercises | length }}"></div>
 
 <script>
-    const gymTemplates = {{ gym_templates | tojson }};
     let exerciseCount = parseInt(document.getElementById('exercise-config').dataset.count);
 
     function updateExerciseOrder() {
@@ -134,64 +114,6 @@
             container.insertBefore(block.nextElementSibling, block);
         }
         updateExerciseOrder();
-    }
-
-    function importFromTemplate() {
-        const select = document.getElementById('import-template-select');
-        const templateId = parseInt(select.value);
-        if (!templateId) return;
-        const tmpl = gymTemplates.find(t => t.id === templateId);
-        if (!tmpl) return;
-
-        document.getElementById('exercise-container').innerHTML = '';
-        exerciseCount = 0;
-        document.getElementById('gym-template-id-input').value = tmpl.id;
-        tmpl.exercises.forEach(ex => addExerciseFromTemplate(ex));
-        updateExerciseOrder();
-    }
-
-    function addExerciseFromTemplate(ex) {
-        const i = exerciseCount;
-        let setsHtml = '';
-        for (let s = 0; s < ex.target_sets; s++) {
-            const w = ex.target_weight_kg || '';
-            setsHtml += `
-                <div class="set-row" style="display:flex; gap:1rem; align-items:center; margin:0.3rem 0;">
-                    <span>Set ${s + 1}</span>
-                    <input type="number" name="weight_${i}_${s}" placeholder="kg" step="0.5" min="0" style="width:70px" value="${w}">
-                    ${ex.exercise_type === 'reps'
-                        ? `<input type="number" name="reps_${i}_${s}" placeholder="reps" min="0" style="width:70px" value="${ex.target_reps || ''}">`
-                        : `<input type="number" name="seconds_${i}_${s}" placeholder="sec" min="0" style="width:70px" value="${ex.target_seconds || ''}">`
-                    }
-                    <input type="text" name="set_notes_${i}_${s}" placeholder="notes" style="width:150px">
-                    <button type="button" onclick="removeSet(this)">✕</button>
-                </div>`;
-        }
-        let targetInfo = `Target: ${ex.target_sets} sets`;
-        targetInfo += ex.exercise_type === 'reps' ? ` × ${ex.target_reps || '?'} reps` : ` × ${ex.target_seconds || '?'}s`;
-        if (ex.target_weight_kg) targetInfo += ` @ ${ex.target_weight_kg} kg`;
-        if (ex.target_rpe) targetInfo += ` @ RPE ${ex.target_rpe}`;
-
-        const block = document.createElement('div');
-        block.className = 'exercise-block';
-        block.id = `exercise-${i}`;
-        block.innerHTML = `
-            <input type="hidden" name="exercise_id_${i}" value="${ex.exercise_id}">
-            <input type="hidden" name="exercise_type_${i}" value="${ex.exercise_type}">
-            <h3>
-                <button type="button" onclick="moveExercise(this, -1)" style="min-height:unset;padding:0 0.3rem;" title="Move up">↑</button>
-                <button type="button" onclick="moveExercise(this, 1)"  style="min-height:unset;padding:0 0.3rem;" title="Move down">↓</button>
-                ${ex.exercise_name}
-                <button type="button" data-index="${i}" onclick="removeExercise(parseInt(this.dataset.index))">Remove</button>
-            </h3>
-            <p><em>${targetInfo}</em></p>
-            <div id="sets-${i}">${setsHtml}</div>
-            <input type="hidden" name="set_count_${i}" id="set_count_${i}" value="${ex.target_sets}">
-            <button type="button" data-index="${i}" data-extype="${ex.exercise_type}"
-                onclick="addSet(parseInt(this.dataset.index), this.dataset.extype)">+ Add Set</button>
-            <hr>`;
-        document.getElementById('exercise-container').appendChild(block);
-        exerciseCount++;
     }
 
     function addSet(exIndex, exType) {
@@ -281,7 +203,6 @@
         updateExerciseOrder();
     }
 
-    // initialise order field on page load
     updateExerciseOrder();
 </script>
 

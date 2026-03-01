@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Log – Workout Tracker{% endblock %}
+{% block content %}
+
+<h1>Workout Log</h1>
+
+<div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+    <a href="/log/gym/new"><button type="button">🏋️ Log Gym Workout</button></a>
+    <a href="/log/run/new"><button type="button">🏃 Log Run</button></a>
+</div>
+
+<div style="display:flex; gap:0.5rem; margin-bottom:1rem; flex-wrap:wrap;">
+    <button type="button" id="filter-all" class="filter-btn active-filter" onclick="setFilter('all')">All</button>
+    <button type="button" id="filter-gym" class="filter-btn" onclick="setFilter('gym')">🏋️ Gym</button>
+    <button type="button" id="filter-run" class="filter-btn" onclick="setFilter('run')">🏃 Run</button>
+</div>
+
+<style>
+    .filter-btn {
+        background: #ecf0f1;
+        color: #333;
+        min-height: 36px;
+        padding: 0.3rem 0.9rem;
+        font-size: 0.9rem;
+    }
+    .filter-btn:hover { background: #dde4e8; }
+    .active-filter { background: #2c3e50 !important; color: white !important; }
+</style>
+
+{% if workouts %}
+<div class="table-wrap">
+<table id="log-table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Template</th>
+            <th>Distance</th>
+            <th>Duration</th>
+            <th>Notes</th>
+            <th></th>
+            <th></th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for w in workouts %}
+        <tr class="log-row row-{{ w.workout_type }}">
+            <td>{{ w.date }}</td>
+            <td>{{ "🏋️ Gym" if w.workout_type == "gym" else "🏃 Run" }}</td>
+            <td>{{ w.template_name or ("—" if w.workout_type == "gym" else (w.run_type | replace("_", " ") | title)) }}</td>
+            <td>
+                {% if w.total_distance_meters %}
+                    {{ "%.2f"|format(w.total_distance_meters / 1000) }} km
+                {% else %}—{% endif %}
+            </td>
+            <td>
+                {% if w.total_duration_seconds %}
+                    {% set h = w.total_duration_seconds // 3600 %}
+                    {% set m = (w.total_duration_seconds % 3600) // 60 %}
+                    {% set s = w.total_duration_seconds % 60 %}
+                    {% if h > 0 %}{{ h }}:{{ "%02d"|format(m) }}:{{ "%02d"|format(s) }}
+                    {% else %}{{ m }}:{{ "%02d"|format(s) }}{% endif %}
+                {% else %}—{% endif %}
+            </td>
+            <td>{{ w.notes or "—" }}</td>
+            <td><a href="/log/{{ w.workout_type }}/{{ w.id }}">View</a></td>
+            <td><a href="/log/{{ w.workout_type }}/{{ w.id }}/edit">Edit</a></td>
+            <td>
+                <button type="button" class="danger btn-small"
+                        onclick="deleteWorkout({{ w.id }}, '{{ w.workout_type }}', this)">
+                    Delete
+                </button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p>No workouts logged yet.</p>
+{% endif %}
+
+<script>
+    let currentFilter = 'all';
+
+    function setFilter(type) {
+        currentFilter = type;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-filter'));
+        document.getElementById('filter-' + type).classList.add('active-filter');
+        document.querySelectorAll('.log-row').forEach(row => {
+            if (type === 'all' || row.classList.contains('row-' + type)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    function deleteWorkout(id, type, btn) {
+        if (!confirm('Delete this workout?')) return;
+        fetch(`/log/${type}/${id}`, { method: 'DELETE' })
+            .then(r => {
+                if (r.ok || r.status === 200) {
+                    btn.closest('tr').remove();
+                }
+            });
+    }
+</script>
+
+{% endblock %}

@@ -237,6 +237,34 @@
             max-width: 480px;
             margin-top: 1rem;
         }
+
+        /* ── Muscle group chips ── */
+        .field-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #444;
+            margin-bottom: 0.4rem;
+        }
+        .muscle-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-bottom: 0.25rem;
+        }
+        .muscle-chip {
+            padding: 0.2rem 0.65rem;
+            font-size: 0.82rem;
+            min-height: unset;
+            min-width: unset;
+            background: #ecf0f1;
+            color: #444;
+            border-radius: 20px;
+            cursor: pointer;
+            line-height: 1.6;
+        }
+        .muscle-chip:hover { background: #d5dde4; }
+        .muscle-chip.active { background: #4a90d9; color: white; }
+        .muscle-chip.active:hover { background: #357abd; }
     </style>
 </head>
 <body>
@@ -249,14 +277,20 @@
             <a href="/gym-templates">Gym Templates</a>
             <a href="/run-templates">Run Templates</a>
             <a href="/schedule">Schedule</a>
-            <a href="/log/gym">Gym Log</a>
-            <a href="/log/run">Run Log</a>
-            <a href="/history">History</a>
+            <a href="/log">Log</a>
+            <a href="/stats">Stats</a>
         </div>
     </nav>
     <div class="content">
         {% block content %}{% endblock %}
     </div>
+    <script>
+        function toggleChip(btn, inputId) {
+            btn.classList.toggle('active');
+            const chips = btn.closest('.muscle-chips').querySelectorAll('.muscle-chip.active');
+            document.getElementById(inputId).value = [...chips].map(c => c.dataset.value).join(', ');
+        }
+    </script>
     <script>
         function toggleNav() {
             document.getElementById('nav-links').classList.toggle('open');
