@@ -2,10 +2,6 @@
 
 Personal workout tracking app built with FastAPI. Tracks gym sessions and runs, with scheduling, templates, and stats.
 
-## Live app
-
-http://116.203.220.138 (password protected)
-
 ## Run locally
 
 ```bash
@@ -26,7 +22,7 @@ git push
 
 **2. On the server (SSH in first):**
 ```bash
-ssh root@116.203.220.138
+ssh root@YOUR_SERVER_IP
 ```
 
 Then:
@@ -40,8 +36,7 @@ systemctl restart workout-tracker
 
 ## Server details
 
-- Provider: Hetzner Cloud (XC23, Nuremberg)
-- OS: Ubuntu
+- Provider: Hetzner Cloud
 - App runs as: `appuser`
 - App location: `/home/appuser/workout-tracker/`
 - Database: `/home/appuser/workout-tracker/workout_tracker.db`
