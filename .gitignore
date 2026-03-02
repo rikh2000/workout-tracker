@@ -13,3 +13,6 @@ wheels/
 *.db
 *.db-shm
 *.db-wal
+
+# Environment variables (credentials, never commit)
+.env

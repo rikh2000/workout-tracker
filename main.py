@@ -1,7 +1,11 @@
+import os
+import base64
+import secrets
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
 from database import init_db, get_connection
 from datetime import date, timedelta
 from routers import exercises
@@ -14,6 +18,29 @@ from routers import log
 from routers import stats
 
 app = FastAPI()
+
+_AUTH_USER = os.environ.get("AUTH_USERNAME", "")
+_AUTH_PASS = os.environ.get("AUTH_PASSWORD", "")
+
+if _AUTH_USER and _AUTH_PASS:
+    class BasicAuthMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request, call_next):
+            auth = request.headers.get("Authorization", "")
+            if auth.startswith("Basic "):
+                try:
+                    decoded = base64.b64decode(auth[6:]).decode()
+                    user, _, pwd = decoded.partition(":")
+                    user_ok = secrets.compare_digest(user, _AUTH_USER)
+                    pass_ok = secrets.compare_digest(pwd, _AUTH_PASS)
+                    if user_ok and pass_ok:
+                        return await call_next(request)
+                except Exception:
+                    pass
+            return Response(
+                "Unauthorized", status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="Workout Tracker"'}
+            )
+    app.add_middleware(BasicAuthMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
