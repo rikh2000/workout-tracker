@@ -1,11 +1,75 @@
 {% extends "base.html" %}
 {% block title %}Workout Tracker{% endblock %}
 {% block content %}
-<h1>Welcome</h1>
-<p>Use the menu to navigate.</p>
-<div style="display:flex; flex-direction:column; gap:0.75rem; max-width:300px; margin-top:1.5rem;">
-    <a href="/schedule"><button style="width:100%;">📅 Schedule</button></a>
-    <a href="/log/gym"><button style="width:100%;">🏋️ Log Gym Workout</button></a>
-    <a href="/log/run"><button style="width:100%;">🏃 Log Run</button></a>
+
+<h1>Dashboard</h1>
+
+<!-- This week strip -->
+<div style="display:flex; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:120px; text-align:center; padding:0.75rem 1rem;">
+        <div style="font-size:1.6rem; font-weight:bold;">{{ weekly_km }}</div>
+        <div style="color:#888; font-size:0.85rem;">km this week</div>
+    </div>
+    <div class="card" style="flex:1; min-width:120px; text-align:center; padding:0.75rem 1rem;">
+        <div style="font-size:1.6rem; font-weight:bold;">{{ weekly_gym }}</div>
+        <div style="color:#888; font-size:0.85rem;">gym sessions this week</div>
+    </div>
 </div>
+
+<!-- Upcoming this week -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="margin-top:0;">Upcoming this week</h2>
+    {% if upcoming %}
+    <table style="width:100%;">
+        {% for w in upcoming %}
+        <tr>
+            <td style="width:90px; color:#888; font-size:0.9rem;">{{ w.label }}</td>
+            <td>{{ "🏋️" if w.workout_type == "gym" else "🏃" }} {{ w.name }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:#888; margin:0;">Nothing scheduled for the next 7 days.</p>
+    {% endif %}
+</div>
+
+<!-- Recent workouts -->
+<div class="card" style="margin-bottom:1.5rem;">
+    <h2 style="margin-top:0;">Recent workouts</h2>
+    {% if recent %}
+    <table style="width:100%;">
+        {% for w in recent %}
+        <tr>
+            <td style="width:95px; color:#888; font-size:0.9rem;">
+                {% if w.date == today %}Today
+                {% elif w.date == yesterday %}Yesterday
+                {% else %}{{ w.date }}{% endif %}
+            </td>
+            <td>
+                {{ "🏋️" if w.workout_type == "gym" else "🏃" }}
+                {{ w.template_name or (w.run_type | replace("_", " ") | title if w.run_type else w.workout_type | capitalize) }}
+            </td>
+            <td style="text-align:right; color:#888; font-size:0.9rem;">
+                {% if w.workout_type == "run" and w.total_distance_meters %}
+                    {{ "%.1f"|format(w.total_distance_meters / 1000) }} km
+                {% endif %}
+            </td>
+            <td style="text-align:right; width:48px;">
+                <a href="/log/{{ w.workout_type }}/{{ w.id }}" style="font-size:0.85rem;">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p style="color:#888; margin:0;">No workouts logged yet.</p>
+    {% endif %}
+</div>
+
+<!-- Quick actions -->
+<div style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+    <a href="/schedule"><button>📅 Schedule</button></a>
+    <a href="/log/gym/new"><button>🏋️ Log Gym</button></a>
+    <a href="/log/run/new"><button>🏃 Log Run</button></a>
+</div>
+
 {% endblock %}

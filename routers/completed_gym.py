@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from database import get_connection
 from typing import Optional
@@ -195,6 +195,15 @@ def view_gym_log(request: Request, workout_id: int):
         "workout": workout,
         "exercises": list(exercises.values())
     })
+
+@router.delete("/{workout_id}")
+def delete_gym_log(workout_id: int):
+    conn = get_connection()
+    conn.execute("DELETE FROM completed_gym_workouts WHERE id = ?", (workout_id,))
+    conn.commit()
+    conn.close()
+    return Response(status_code=200)
+
 
 @router.post("/{workout_id}/delete", response_class=HTMLResponse)
 def delete_gym_log_from_calendar(
