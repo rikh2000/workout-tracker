@@ -108,19 +108,9 @@
         {% endif %}
     </div>
 
-    <!-- Total volume over time -->
+    <!-- Sets per week by rep range -->
     <div class="card" style="margin-bottom:1.5rem;">
-        <h2>Total Sets per Week</h2>
-        {% if gym_volume %}
-        <canvas id="totalVolChart"></canvas>
-        {% else %}
-        <p style="color:#888;">No volume data in this period.</p>
-        {% endif %}
-    </div>
-
-    <!-- Rep range distribution -->
-    <div class="card" style="margin-bottom:1.5rem;">
-        <h2>Rep Range Distribution</h2>
+        <h2>Sets per Week by Rep Range</h2>
         {% if rep_range_weeks %}
         <canvas id="repRangeChart"></canvas>
         {% else %}
@@ -206,7 +196,6 @@
     data-run-types='{{ run_types | tojson }}'
     data-muscle-groups='{{ muscle_groups | tojson }}'
     data-gym-freq='{{ gym_freq | tojson }}'
-    data-gym-volume='{{ gym_volume | tojson }}'
     data-rep-range-weeks='{{ rep_range_weeks | tojson }}'
     data-window='{{ window }}'
     data-exercise-id='{{ exercise_id or "" }}'>
@@ -221,7 +210,6 @@
     const runTypes    = JSON.parse(el.dataset.runTypes);
     const muscleData  = JSON.parse(el.dataset.muscleGroups);
     const gymFreq       = JSON.parse(el.dataset.gymFreq);
-    const gymVolume     = JSON.parse(el.dataset.gymVolume);
     const repRangeWeeks = JSON.parse(el.dataset.repRangeWeeks);
     const currentWin  = el.dataset.window;
     const initExId    = el.dataset.exerciseId;
@@ -360,29 +348,7 @@
         });
     }
 
-    // ── Gym total sets per week ───────────────────────────────────────────
-    if (gymVolume.length) {
-        new Chart(document.getElementById('totalVolChart'), {
-            type: 'bar',
-            data: {
-                labels: gymVolume.map(r => r.week),
-                datasets: [{
-                    label: 'Sets',
-                    data: gymVolume.map(r => r.total_sets),
-                    backgroundColor: '#e67e22'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'sets' } }
-                },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-
-    // ── Rep range distribution stacked bar ───────────────────────────────
+    // ── Sets per week by rep range (stacked absolute) ────────────────────
     if (repRangeWeeks.length) {
         const rangeOrder  = ['Strength (1-5)', 'Hypertrophy (6-12)', 'Endurance (13+)'];
         const rangeColors = ['#e74c3c', '#4a90d9', '#2ecc71'];
@@ -400,15 +366,9 @@
                 responsive: true,
                 scales: {
                     x: { stacked: true },
-                    y: { stacked: true, beginAtZero: true, max: 100,
-                         title: { display: true, text: '% of sets' } }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}%`
-                        }
-                    }
+                    y: { stacked: true, beginAtZero: true,
+                         ticks: { stepSize: 1 },
+                         title: { display: true, text: 'sets' } }
                 }
             }
         });

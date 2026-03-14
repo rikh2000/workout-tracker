@@ -133,18 +133,7 @@ def stats_page(request: Request, window: str = "12m",
         ORDER BY week ASC
     """, (since,)).fetchall()
 
-    # ── Gym: total sets per week ──────────────────────────────────────────────
-    vol_rows = conn.execute("""
-        SELECT strftime('%Y-W%W', cgw.date) as week,
-               COUNT(*) as total_sets
-        FROM completed_gym_sets cgs
-        JOIN completed_gym_workouts cgw ON cgw.id = cgs.workout_id
-        WHERE cgw.date >= ?
-        GROUP BY week
-        ORDER BY week ASC
-    """, (since,)).fetchall()
-
-    # ── Gym: rep range distribution per week ─────────────────────────────────
+    # ── Gym: sets per week by rep range ──────────────────────────────────────
     rep_range_rows = conn.execute("""
         SELECT strftime('%Y-W%W', cgw.date) as week,
                CASE
@@ -202,15 +191,12 @@ def stats_page(request: Request, window: str = "12m",
     total_runs = run_summary["total_runs"] or 0
     avg_weekly_km = round(total_km / max(1, len(mileage)), 1) if mileage else 0.0
 
-    # ── Process gym frequency + volume ───────────────────────────────────────
+    # ── Process gym frequency ─────────────────────────────────────────────────
     gym_freq = fill_weeks(
         [{"week": r["week"], "sessions": r["sessions"]} for r in freq_rows],
         "week", {"sessions": 0}, since)
-    gym_volume = fill_weeks(
-        [{"week": r["week"], "total_sets": r["total_sets"]} for r in vol_rows],
-        "week", {"total_sets": 0}, since)
 
-    # ── Process rep range distribution ───────────────────────────────────────
+    # ── Process sets per week by rep range (absolute counts) ─────────────────
     range_order = ["Strength (1-5)", "Hypertrophy (6-12)", "Endurance (13+)"]
     rep_range_by_week: dict = {}
     for row in rep_range_rows:
@@ -218,14 +204,10 @@ def stats_page(request: Request, window: str = "12m",
         if w not in rep_range_by_week:
             rep_range_by_week[w] = {r: 0 for r in range_order}
         rep_range_by_week[w][row["rep_range"]] = row["sets"]
-    # Convert to percentages
-    rep_range_weeks_raw = []
-    for w, ranges in sorted(rep_range_by_week.items()):
-        total = sum(ranges.values())
-        rep_range_weeks_raw.append({
-            "week": w,
-            **{r: round(ranges[r] / total * 100, 1) for r in range_order}
-        })
+    rep_range_weeks_raw = [
+        {"week": w, **ranges}
+        for w, ranges in sorted(rep_range_by_week.items())
+    ]
     rep_range_weeks = fill_weeks(rep_range_weeks_raw, "week", {r: 0 for r in range_order}, since)
 
     # ── Process PRs board (best est. 1RM per exercise) ────────────────────────
@@ -258,7 +240,6 @@ def stats_page(request: Request, window: str = "12m",
         "all_exercises": [dict(e) for e in all_exercises],
         "muscle_groups": muscle_sorted,
         "gym_freq": gym_freq,
-        "gym_volume": gym_volume,
         "rep_range_weeks": rep_range_weeks,
         "prs_board": prs_board,
     })
