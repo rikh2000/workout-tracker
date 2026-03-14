@@ -26,7 +26,7 @@ def fill_weeks(data: list, week_field: str, defaults: dict, since_str: str) -> l
         if w not in seen:
             seen.add(w)
             all_weeks.append(w)
-        d += timedelta(days=7)
+        d += timedelta(days=1)
     lookup = {r[week_field]: r for r in data}
     return [lookup.get(w, {week_field: w, **defaults}) for w in all_weeks]
 
@@ -195,7 +195,8 @@ def stats_page(request: Request, window: str = "12m",
         if w not in rpe_by_week:
             rpe_by_week[w] = {z: 0 for z in zone_order}
         rpe_by_week[w][row["zone"]] = round(row["minutes"] or 0, 1)
-    rpe_weeks = [{"week": w, **zones} for w, zones in sorted(rpe_by_week.items())]
+    rpe_weeks_raw = [{"week": w, **zones} for w, zones in sorted(rpe_by_week.items())]
+    rpe_weeks = fill_weeks(rpe_weeks_raw, "week", {z: 0 for z in zone_order}, since)
 
     total_km = run_summary["total_km"] or 0
     total_runs = run_summary["total_runs"] or 0
@@ -218,13 +219,14 @@ def stats_page(request: Request, window: str = "12m",
             rep_range_by_week[w] = {r: 0 for r in range_order}
         rep_range_by_week[w][row["rep_range"]] = row["sets"]
     # Convert to percentages
-    rep_range_weeks = []
+    rep_range_weeks_raw = []
     for w, ranges in sorted(rep_range_by_week.items()):
         total = sum(ranges.values())
-        rep_range_weeks.append({
+        rep_range_weeks_raw.append({
             "week": w,
             **{r: round(ranges[r] / total * 100, 1) for r in range_order}
         })
+    rep_range_weeks = fill_weeks(rep_range_weeks_raw, "week", {r: 0 for r in range_order}, since)
 
     # ── Process PRs board (best est. 1RM per exercise) ────────────────────────
     pr_dict: dict = {}
