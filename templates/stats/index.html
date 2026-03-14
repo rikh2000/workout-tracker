@@ -90,11 +90,66 @@
 
     <!-- Muscle group distribution -->
     <div class="card" style="margin-bottom:1.5rem;">
-        <h2>Muscle Group Distribution</h2>
+        <h2>Muscle Group Distribution (%)</h2>
         {% if muscle_groups %}
-        <canvas id="muscleChart"></canvas>
+        <canvas id="muscleChart" style="max-height:300px;"></canvas>
         {% else %}
         <p style="color:#888;">No gym data in this period, or exercises have no muscle groups set.</p>
+        {% endif %}
+    </div>
+
+    <!-- Workout frequency -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Workout Frequency</h2>
+        {% if gym_freq %}
+        <canvas id="freqChart"></canvas>
+        {% else %}
+        <p style="color:#888;">No gym sessions in this period.</p>
+        {% endif %}
+    </div>
+
+    <!-- Total volume over time -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Total Sets per Week</h2>
+        {% if gym_volume %}
+        <canvas id="totalVolChart"></canvas>
+        {% else %}
+        <p style="color:#888;">No volume data in this period.</p>
+        {% endif %}
+    </div>
+
+    <!-- Rep range distribution -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Rep Range Distribution</h2>
+        {% if rep_range_weeks %}
+        <canvas id="repRangeChart"></canvas>
+        {% else %}
+        <p style="color:#888;">No gym data in this period.</p>
+        {% endif %}
+    </div>
+
+    <!-- PRs board -->
+    <div class="card" style="margin-bottom:1.5rem;">
+        <h2>Personal Records (all-time)</h2>
+        {% if prs_board %}
+        <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Exercise</th><th>Best set</th><th>Est. 1RM</th></tr>
+            </thead>
+            <tbody>
+                {% for pr in prs_board %}
+                <tr>
+                    <td>{{ pr.exercise }}</td>
+                    <td>{{ pr.weight_kg }} kg × {{ pr.reps }}</td>
+                    <td>{{ pr.est_1rm }} kg</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+        {% else %}
+        <p style="color:#888;">No gym data yet.</p>
         {% endif %}
     </div>
 
@@ -150,6 +205,9 @@
     data-rpe-weeks='{{ rpe_weeks | tojson }}'
     data-run-types='{{ run_types | tojson }}'
     data-muscle-groups='{{ muscle_groups | tojson }}'
+    data-gym-freq='{{ gym_freq | tojson }}'
+    data-gym-volume='{{ gym_volume | tojson }}'
+    data-rep-range-weeks='{{ rep_range_weeks | tojson }}'
     data-window='{{ window }}'
     data-exercise-id='{{ exercise_id or "" }}'>
 </div>
@@ -161,7 +219,10 @@
     const mileage     = JSON.parse(el.dataset.mileage);
     const rpeWeeks    = JSON.parse(el.dataset.rpeWeeks);
     const runTypes    = JSON.parse(el.dataset.runTypes);
-    const muscleData  = JSON.parse(el.dataset.muscleGroups);   // [[name, sets], ...]
+    const muscleData  = JSON.parse(el.dataset.muscleGroups);
+    const gymFreq       = JSON.parse(el.dataset.gymFreq);
+    const gymVolume     = JSON.parse(el.dataset.gymVolume);
+    const repRangeWeeks = JSON.parse(el.dataset.repRangeWeeks);
     const currentWin  = el.dataset.window;
     const initExId    = el.dataset.exerciseId;
 
@@ -245,25 +306,110 @@
         });
     }
 
-    // ── Muscle group horizontal bar ───────────────────────────────────────
+    // ── Muscle group doughnut ─────────────────────────────────────────────
     if (muscleData.length) {
+        const muscleColors = ['#4a90d9','#2ecc71','#e67e22','#9b59b6','#1abc9c','#e74c3c',
+                              '#f1c40f','#3498db','#27ae60','#d35400','#8e44ad','#16a085',
+                              '#c0392b','#2980b9','#f39c12','#7f8c8d'];
+        const total = muscleData.reduce((s, d) => s + d[1], 0);
         new Chart(document.getElementById('muscleChart'), {
-            type: 'bar',
+            type: 'doughnut',
             data: {
                 labels: muscleData.map(d => d[0]),
                 datasets: [{
-                    label: 'Sets',
                     data: muscleData.map(d => d[1]),
-                    backgroundColor: '#9b59b6'
+                    backgroundColor: muscleData.map((_, i) => muscleColors[i % muscleColors.length])
                 }]
             },
             options: {
-                indexAxis: 'y',
+                responsive: true,
+                plugins: {
+                    legend: { position: 'right' },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                                return ` ${ctx.label}: ${pct}%`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Gym workout frequency ─────────────────────────────────────────────
+    if (gymFreq.length) {
+        new Chart(document.getElementById('freqChart'), {
+            type: 'bar',
+            data: {
+                labels: gymFreq.map(r => r.week),
+                datasets: [{
+                    label: 'Sessions',
+                    data: gymFreq.map(r => r.sessions),
+                    backgroundColor: '#2ecc71'
+                }]
+            },
+            options: {
                 responsive: true,
                 scales: {
-                    x: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'sets' } }
+                    y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'sessions' } }
                 },
                 plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // ── Gym total sets per week ───────────────────────────────────────────
+    if (gymVolume.length) {
+        new Chart(document.getElementById('totalVolChart'), {
+            type: 'bar',
+            data: {
+                labels: gymVolume.map(r => r.week),
+                datasets: [{
+                    label: 'Sets',
+                    data: gymVolume.map(r => r.total_sets),
+                    backgroundColor: '#e67e22'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true, ticks: { stepSize: 1 }, title: { display: true, text: 'sets' } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    // ── Rep range distribution stacked bar ───────────────────────────────
+    if (repRangeWeeks.length) {
+        const rangeOrder  = ['Strength (1-5)', 'Hypertrophy (6-12)', 'Endurance (13+)'];
+        const rangeColors = ['#e74c3c', '#4a90d9', '#2ecc71'];
+        new Chart(document.getElementById('repRangeChart'), {
+            type: 'bar',
+            data: {
+                labels: repRangeWeeks.map(r => r.week),
+                datasets: rangeOrder.map((range, i) => ({
+                    label: range,
+                    data: repRangeWeeks.map(r => r[range] || 0),
+                    backgroundColor: rangeColors[i]
+                }))
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true },
+                    y: { stacked: true, beginAtZero: true, max: 100,
+                         title: { display: true, text: '% of sets' } }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}%`
+                        }
+                    }
+                }
             }
         });
     }

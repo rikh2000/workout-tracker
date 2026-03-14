@@ -102,6 +102,51 @@ def stats_page(request: Request, window: str = "12m",
         GROUP BY e.muscle_groups
     """, (since,)).fetchall()
 
+    # ── Gym: workout frequency per week ──────────────────────────────────────
+    freq_rows = conn.execute("""
+        SELECT strftime('%Y-W%W', date) as week, COUNT(*) as sessions
+        FROM completed_gym_workouts
+        WHERE date >= ?
+        GROUP BY week
+        ORDER BY week ASC
+    """, (since,)).fetchall()
+
+    # ── Gym: total sets per week ──────────────────────────────────────────────
+    vol_rows = conn.execute("""
+        SELECT strftime('%Y-W%W', cgw.date) as week,
+               COUNT(*) as total_sets
+        FROM completed_gym_sets cgs
+        JOIN completed_gym_workouts cgw ON cgw.id = cgs.workout_id
+        WHERE cgw.date >= ?
+        GROUP BY week
+        ORDER BY week ASC
+    """, (since,)).fetchall()
+
+    # ── Gym: rep range distribution per week ─────────────────────────────────
+    rep_range_rows = conn.execute("""
+        SELECT strftime('%Y-W%W', cgw.date) as week,
+               CASE
+                   WHEN cgs.reps BETWEEN 1 AND 5 THEN 'Strength (1-5)'
+                   WHEN cgs.reps BETWEEN 6 AND 12 THEN 'Hypertrophy (6-12)'
+                   ELSE 'Endurance (13+)'
+               END as rep_range,
+               COUNT(*) as sets
+        FROM completed_gym_sets cgs
+        JOIN completed_gym_workouts cgw ON cgw.id = cgs.workout_id
+        WHERE cgw.date >= ? AND cgs.reps IS NOT NULL
+        GROUP BY week, rep_range
+        ORDER BY week ASC
+    """, (since,)).fetchall()
+
+    # ── Gym: all-time PRs board ───────────────────────────────────────────────
+    pr_rows = conn.execute("""
+        SELECT e.name, cgs.reps, cgs.weight_kg
+        FROM completed_gym_sets cgs
+        JOIN exercises e ON e.id = cgs.exercise_id
+        WHERE cgs.weight_kg IS NOT NULL AND cgs.reps IS NOT NULL AND cgs.reps > 0
+        ORDER BY e.name, cgs.reps
+    """).fetchall()
+
     conn.close()
 
     # ── Process muscle groups (expand comma-separated) ────────────────────────
@@ -133,6 +178,41 @@ def stats_page(request: Request, window: str = "12m",
     total_runs = run_summary["total_runs"] or 0
     avg_weekly_km = round(total_km / max(1, len(mileage)), 1) if mileage else 0.0
 
+    # ── Process gym frequency + volume ───────────────────────────────────────
+    gym_freq = [{"week": r["week"], "sessions": r["sessions"]} for r in freq_rows]
+    gym_volume = [{"week": r["week"], "total_sets": r["total_sets"]} for r in vol_rows]
+
+    # ── Process rep range distribution ───────────────────────────────────────
+    range_order = ["Strength (1-5)", "Hypertrophy (6-12)", "Endurance (13+)"]
+    rep_range_by_week: dict = {}
+    for row in rep_range_rows:
+        w = row["week"]
+        if w not in rep_range_by_week:
+            rep_range_by_week[w] = {r: 0 for r in range_order}
+        rep_range_by_week[w][row["rep_range"]] = row["sets"]
+    # Convert to percentages
+    rep_range_weeks = []
+    for w, ranges in sorted(rep_range_by_week.items()):
+        total = sum(ranges.values())
+        rep_range_weeks.append({
+            "week": w,
+            **{r: round(ranges[r] / total * 100, 1) for r in range_order}
+        })
+
+    # ── Process PRs board (best est. 1RM per exercise) ────────────────────────
+    pr_dict: dict = {}
+    for row in pr_rows:
+        name = row["name"]
+        e1rm = row["weight_kg"] * (1 + row["reps"] / 30.0)
+        if name not in pr_dict or e1rm > pr_dict[name]["est_1rm"]:
+            pr_dict[name] = {
+                "exercise": name,
+                "weight_kg": row["weight_kg"],
+                "reps": row["reps"],
+                "est_1rm": round(e1rm, 1),
+            }
+    prs_board = sorted(pr_dict.values(), key=lambda x: x["exercise"])
+
     return templates.TemplateResponse("stats/index.html", {
         "request": request,
         "window": window,
@@ -148,6 +228,10 @@ def stats_page(request: Request, window: str = "12m",
         # Gym
         "all_exercises": [dict(e) for e in all_exercises],
         "muscle_groups": muscle_sorted,
+        "gym_freq": gym_freq,
+        "gym_volume": gym_volume,
+        "rep_range_weeks": rep_range_weeks,
+        "prs_board": prs_board,
     })
 
 
