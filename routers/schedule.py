@@ -95,7 +95,8 @@ def schedule_view(
             "next_year": next_day.year, "next_month": next_day.month, "next_day": next_day.day,
             "gym_templates": gym_templates,
             "run_templates": run_templates,
-            "month_name": today.strftime("%B %Y")
+            "month_name": days[0].strftime("%B %Y") if days[0].month == days[-1].month
+                          else f"{days[0].strftime('%b')} – {days[-1].strftime('%b %Y')}"
         })
     else:
         weeks = get_month_weeks(year, month)

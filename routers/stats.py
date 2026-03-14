@@ -9,6 +9,28 @@ router = APIRouter(prefix="/stats")
 templates = Jinja2Templates(directory="templates")
 
 
+def fill_weeks(data: list, week_field: str, defaults: dict, since_str: str) -> list:
+    """Fill missing weeks with default values so charts have no gaps."""
+    today = date.today()
+    if since_str == "2000-01-01":
+        if not data:
+            return []
+        year = int(data[0][week_field].split('-W')[0])
+        start = date(year, 1, 1)
+    else:
+        start = date.fromisoformat(since_str)
+    seen, all_weeks = set(), []
+    d = start
+    while d <= today:
+        w = d.strftime('%Y-W%W')
+        if w not in seen:
+            seen.add(w)
+            all_weeks.append(w)
+        d += timedelta(days=7)
+    lookup = {r[week_field]: r for r in data}
+    return [lookup.get(w, {week_field: w, **defaults}) for w in all_weeks]
+
+
 def get_since_date(window: str) -> str:
     today = date.today()
     if window == "4w":
@@ -159,7 +181,8 @@ def stats_page(request: Request, window: str = "12m",
     muscle_sorted = sorted(muscle_totals.items(), key=lambda x: x[1], reverse=True)
 
     # ── Process weekly mileage + rolling 4-week average ───────────────────────
-    mileage = [{"week": r["week"], "km": round(r["km"] or 0, 2)} for r in mileage_rows]
+    mileage_raw = [{"week": r["week"], "km": round(r["km"] or 0, 2)} for r in mileage_rows]
+    mileage = fill_weeks(mileage_raw, "week", {"km": 0.0}, since)
     for i, d in enumerate(mileage):
         vals = [mileage[j]["km"] for j in range(max(0, i - 3), i + 1)]
         d["rolling_avg"] = round(sum(vals) / len(vals), 2)
@@ -179,8 +202,12 @@ def stats_page(request: Request, window: str = "12m",
     avg_weekly_km = round(total_km / max(1, len(mileage)), 1) if mileage else 0.0
 
     # ── Process gym frequency + volume ───────────────────────────────────────
-    gym_freq = [{"week": r["week"], "sessions": r["sessions"]} for r in freq_rows]
-    gym_volume = [{"week": r["week"], "total_sets": r["total_sets"]} for r in vol_rows]
+    gym_freq = fill_weeks(
+        [{"week": r["week"], "sessions": r["sessions"]} for r in freq_rows],
+        "week", {"sessions": 0}, since)
+    gym_volume = fill_weeks(
+        [{"week": r["week"], "total_sets": r["total_sets"]} for r in vol_rows],
+        "week", {"total_sets": 0}, since)
 
     # ── Process rep range distribution ───────────────────────────────────────
     range_order = ["Strength (1-5)", "Hypertrophy (6-12)", "Endurance (13+)"]
